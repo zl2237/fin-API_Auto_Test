@@ -56,11 +56,25 @@ allure_report:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
-    - python3 -m pip install allure-pytest --quiet --break-system-packages
+    - |
+      echo "Installing Allure CLI..."
+      if [ ! -d "/opt/allure-2.32.0" ]; then
+        echo "Downloading Allure CLI from mirror..."
+        wget -q https://cdn.jsdelivr.net/gh/allure-framework/allure2@2.32.0/allure-2.32.0.tgz -O /tmp/allure.tgz || \
+        wget -q https://repo.maven.org/maven2/io/qameta/allure/allure-commandline/2.32.0/allure-commandline-2.32.0.tgz -O /tmp/allure.tgz || \
+        wget -q https://mirrors.aliyun.com/github/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz -O /tmp/allure.tgz
+        tar -xzf /tmp/allure.tgz -C /opt
+        rm /tmp/allure.tgz
+      fi
+      export ALLURE_HOME="/opt/allure-2.32.0"
+      export PATH="$ALLURE_HOME/bin:$PATH"
   script:
-    - echo "Generating Allure report..."
-    - allure generate report/allure-results -o report/allure-report --clean
-    - echo "Allure report generated successfully"
+    - |
+      export ALLURE_HOME="/opt/allure-2.32.0"
+      export PATH="$ALLURE_HOME/bin:$PATH"
+      echo "Generating Allure report..."
+      allure generate report/allure-results -o report/allure-report --clean
+      echo "Allure report generated successfully"
   artifacts:
     when: always
     paths:
@@ -77,6 +91,7 @@ allure_report:
 pages:
   stage: report
   script:
+    - mkdir -p public
     - mv report/allure-report public/
   artifacts:
     paths:
