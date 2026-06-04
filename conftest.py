@@ -48,11 +48,11 @@ def global_login():
     log.info("===== 全局登录fixture结束 =====")
 
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    report = outcome.get_result()
-    setattr(item, "rep_" + report.when, report)
+# @pytest.hookimpl(tryfirst=True, hookwrapper=True)
+# def pytest_runtest_makereport(item, call):
+#     outcome = yield
+#     report = outcome.get_result()
+#     setattr(item, "rep_" + report.when, report)
 
 
 def pytest_sessionfinish(session, exitstatus):

@@ -83,6 +83,7 @@ notify:
         python3 notify.py
       fi
   needs:
+    - smoke_test
     - pages
   tags:
     - api
