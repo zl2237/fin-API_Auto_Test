@@ -1,8 +1,6 @@
 stages:
   - lint
   - smoke_test
-  - report
-  - pages
   - notify
 
 # ① 代码检查
@@ -40,50 +38,12 @@ smoke_test:
   tags:
     - api
 
-# ③ 生成 Allure 报告
-allure_report:
-  stage: report
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
-  script:
-    - allure generate report/allure-results -o report/allure-report
-  artifacts:
-    when: always
-    paths:
-      - report/allure-report
-  needs:
-    - smoke_test
-  tags:
-    - api
-
-# ④ 部署 Pages（解决白屏的关键）
-pages:
-  stage: pages
-  script:
-    - mkdir -p public
-    - cp -r report/allure-report/* public/
-  artifacts:
-    paths:
-      - public
-  needs:
-    - allure_report
-  tags:
-    - api
-
-# ⑤ 企微通知
+# ③ 企微通知
 notify:
   stage: notify
-  variables:
-    ALLURE_REPORT_URL: "$CI_PAGES_URL/index.html"
   script:
-    - |
-      if [ -f "notify.py" ]; then
-        python3 notify.py
-      fi
+    - python3 notify.py
   needs:
     - smoke_test
-    - pages
   tags:
     - api

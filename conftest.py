@@ -86,7 +86,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     report_dir = Path("report")
     report_dir.mkdir(exist_ok=True)
 
-    summary_path = report_dir / "test_summary.json"
+    summary_path = Path("report/allure-results") / "test_summary.json"
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump({
             "total": len(results["passed"]) + len(results["failed"]) + len(results["skipped"]),
