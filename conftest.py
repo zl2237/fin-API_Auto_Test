@@ -87,6 +87,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     report_dir.mkdir(exist_ok=True)
 
     summary_path = Path("report/allure-results") / "test_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+
+    errors = []
+    for failed in results["failed"]:
+        errors.append({"name": failed["name"], "message": failed["message"]})
+
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump({
             "total": len(results["passed"]) + len(results["failed"]) + len(results["skipped"]),
@@ -94,6 +100,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "failed": len(results["failed"]),
             "skipped": len(results["skipped"]),
             "details": results,
+            "errors": errors,
         }, f, ensure_ascii=False, indent=2)
 
     terminalreporter.write_line(f"📄 报告已生成: {summary_path}")

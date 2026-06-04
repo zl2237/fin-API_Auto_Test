@@ -29,10 +29,13 @@ smoke_test:
   script:
     - mkdir -p report/allure-results
     - python3 -m pytest testcases/ -m "entrust or business or validation or add or distribute or submit or workflow" --alluredir report/allure-results
+  after_script:
+    - echo "smoke_test done"
   artifacts:
     when: always
     paths:
       - report/
+    expire_in: 7 days
   needs:
     - lint
   tags:
