@@ -9,7 +9,7 @@
 **核心能力：**
 - 完整的订单生命周期测试（新增 → 分发 → 提交）
 - 支持多种运行方式（全部运行、按标记运行、单独运行）
-- 自动生成 Allure 测试报告
+- 测试结果自动写入 JSON，企微机器人通知
 - 全局登录会话管理
 
 ---
@@ -22,43 +22,29 @@ pr_study/
 │   └── order.py                  # 订单相关接口封装
 │
 ├── config/                       # 配置层
-│   ├── __init__.py              # 包初始化
-│   ├── settings.py               # 全局配置（加载 .env）
-│   ├── marker_config.py          # 标记配置加载器
-│   └── markers.yaml              # 标记开关配置文件
+│   ├── __init__.py               # 包初始化
+│   └── settings.py               # 全局配置（加载 .env）
 │
 ├── core/                         # 核心模块
 │   └── http_client.py            # HTTP 客户端封装
 │
 ├── data/                         # 数据层
-│   ├── __init__.py              # 包初始化
+│   ├── __init__.py               # 包初始化
 │   └── order_data.py             # 订单测试数据（字段分层设计）
 │
 ├── testcases/                    # 测试用例层
 │   └── test_order.py             # 订单接口测试用例
 │
 ├── utils/                        # 工具模块
-│   ├── logger.py                # 日志工具
-│   └── file_util.py             # 文件操作工具
+│   ├── logger.py                 # 日志工具
+│   └── file_util.py              # 文件操作工具
 │
-├── .env.example                  # 环境变量模板（上传 Git）
-├── .env                          # 环境变量（不上传，敏感数据）
 ├── conftest.py                   # pytest 全局配置（登录、报告生成）
+├── notify.py                      # 企微机器人通知脚本
 ├── pytest.ini                    # pytest 配置文件
 ├── requirements.txt              # Python 依赖
 └── README.md                     # 项目文档
 ```
-
-### 分层说明
-
-| 层级 | 目录 | 职责 |
-|------|------|------|
-| **用例层** | `testcases/` | 测试用例定义，断言逻辑 |
-| **API 层** | `api/` | 接口封装，请求发送 |
-| **数据层** | `data/` | 测试数据管理，字段分层 |
-| **配置层** | `config/` | 环境配置，账号信息 |
-| **核心层** | `core/` | HTTP 客户端，日志等基础设施 |
-| **工具层** | `utils/` | 通用工具函数 |
 
 ---
 
@@ -69,7 +55,7 @@ pr_study/
 | pytest | ≥7.4.0 | 测试框架 |
 | requests | ≥2.31.0 | HTTP 客户端 |
 | loguru | ≥0.7.2 | 日志记录 |
-| allure-pytest | ≥2.13.2 | 测试报告 |
+| allure-pytest | ≥2.13.2 | 测试结果收集 |
 | python-dotenv | ≥1.0.0 | 环境变量（可选） |
 
 ---
@@ -122,19 +108,19 @@ pytest testcases/test_order.py::TestEntrustedOrder
 pytest testcases/test_order.py::TestEntrustedOrder::test_entrust_order_normal
 
 # 运行带特定标记的测试（见标记使用章节）
-pytest -m order
-pytest -m "order_create and not order_submit"
+pytest -m entrust
+pytest -m "add or distribute"
 ```
 
-### 4. 查看报告
+### 4. 测试结果
 
-测试完成后会自动打开 Allure 报告（需确保 allure 命令可用）：
+pytest 运行结束后：
 
-```bash
-# 手动生成报告
-allure generate report/allure-results -o report/allure-html --clean
-allure open report/allure-html
-```
+- **本地**：终端输出汇总（通过/失败/跳过数量），失败用例详情
+- **JSON**：测试摘要写入 `report/allure-results/test_summary.json`（由 `conftest.py` 生成）
+- **企微通知**：CI 环境下自动调用 `notify.py` 发送机器人消息
+
+> 本地运行时不发企微通知（`notify.py` 依赖 CI 环境变量），手动验证可跳过。
 
 ---
 
@@ -212,90 +198,49 @@ payload = SubmitOrderData.get_submit_payload_with_overrides(
 
 ### 预定义标记
 
-| 标记 | 说明 | 使用场景 |
-|------|------|----------|
-| `smoke` | 冒烟测试 | 核心功能快速验证 |
-| `regression` | 回归测试 | 完整回归验证 |
-| `full_flow` | 完整流程测试 | 端到端测试 |
-| `order_query` | 查询类测试 | 委托/业务订单列表查询 |
-| `order_create` | 新增订单测试 | 新增委托订单 |
-| `order_distribute` | 分发订单测试 | 订单分发功能 |
-| `order_submit` | 提交订单测试 | 订单提交功能 |
-| `order_workflow` | 完整流程测试 | 新增→分发→提交全流程 |
-| `entrusted_order` | 委托订单相关 | 委托订单模块 |
-| `business_order` | 业务订单相关 | 业务订单模块 |
-| `data_validation` | 数据验证相关 | 数据完整性验证 |
-| `critical` | P0 - 核心业务流程 | 必须通过的核心用例 |
-| `normal` | P1 - 重要功能 | 重要功能用例 |
+每个测试类对应一个独立标记，全部测试默认通过 `-m` 指定标记组合运行：
 
-### 标记配置文件
+| 标记 | 对应测试类 | 说明 |
+|------|-----------|------|
+| `entrust` | `TestEntrustedOrder` | 委托订单列表查询、分页、排序 |
+| `business` | `TestBusinessOrder` | 业务订单列表查询、分页、排序 |
+| `validation` | `TestOrderDataValidation` | 订单数据完整性验证 |
+| `add` | `TestAddOrder` | 新增订单接口 |
+| `distribute` | `TestAddAndDistribute` | 订单分发流程 |
+| `submit` | `TestSubmitOrder` | 订单提交接口 |
+| `workflow` | `TestFullWorkflow` | 完整订单流程（新增→分发→提交） |
 
-在 `config/markers.yaml` 中定义标记开关：
+### 运行方式
 
-```yaml
-# config/markers.yaml
-test_type:
-  smoke: true           # 冒烟测试开关
-  regression: true      # 回归测试开关
-  full_flow: true      # 完整流程开关
-
-order_operations:
-  order_query: true     # 查询类测试
-  order_create: true   # 新增订单
-  order_distribute: true # 分发订单
-  order_submit: true   # 提交订单
-  order_workflow: true # 全流程
+**CI 默认命令（执行全部用例）：**
+```bash
+pytest -m "entrust or business or validation or add or distribute or submit or workflow"
 ```
-
-### 运行方式（重点）
-
-**核心规则：命令行 `-m` 参数 > YAML 配置文件**
-
-| 运行命令 | 是否使用 YAML | 实际行为 |
-|---------|-------------|---------|
-| `pytest` | ✅ 使用 | 只跑 YAML 中标记为 `true` 的测试 |
-| `pytest -m smoke` | ❌ 忽略 | 只跑冒烟测试，忽略 YAML |
-| `pytest -m regression` | ❌ 忽略 | 只跑回归测试，忽略 YAML |
-| `pytest -m order_workflow` | ❌ 忽略 | 只跑全流程测试，忽略 YAML |
-| `pytest -m "smoke or regression"` | ❌ 忽略 | 跑冒烟或回归，忽略 YAML |
-| `pytest -m "order and not order_submit"` | ❌ 忽略 | 跑订单测试（排除提交） |
-| `pytest -m critical` | ❌ 忽略 | 只跑 P0 核心用例 |
 
 **常用运行场景：**
 
 ```bash
-# 场景1: 直接运行，按 YAML 配置过滤
-pytest
+# 运行全部测试
+pytest -m "entrust or business or validation or add or distribute or submit or workflow"
 
-# 场景2: 只跑冒烟测试（忽略 YAML）
-pytest -m smoke
+# 仅查询类（委托+业务）
+pytest -m "entrust or business"
 
-# 场景3: 只跑完整流程测试（忽略 YAML）
-pytest -m order_workflow
+# 仅新增+分发
+pytest -m "add or distribute"
 
-# 场景4: 只跑新增+分发，不跑提交（忽略 YAML）
-pytest -m "order_create and not order_submit"
+# 仅完整流程
+pytest -m "workflow"
 
-# 场景5: 同时运行冒烟和回归
-pytest -m "smoke or regression"
+# 排除提交相关（适合接口不稳定时）
+pytest -m "not submit"
 
-# 场景6: 只跑 P0 核心用例
-pytest -m critical
-
-# 场景7: 指定测试类运行
+# 指定测试类
 pytest testcases/test_order.py::TestEntrustedOrder
 
-# 场景8: 指定测试用例运行
+# 指定测试用例
 pytest testcases/test_order.py::TestEntrustedOrder::test_entrust_order_normal
 ```
-
-**简化理解：**
-- **不带 `-m`** → 用 `config/markers.yaml` 控制哪些跑、哪些不跑
-- **带 `-m`** → 命令行说了算，完全忽略 YAML 配置
-
-这样设计的好处：
-- 不改代码，只改 YAML 配置就能切换默认行为
-- 需要临时跑特定测试时，直接 `-m` 覆盖
 
 ---
 
@@ -358,11 +303,42 @@ resp = OrderApi.submit_order(order_info, bl_no="TEST_BL_001")
 - 位置：`report/logs/auto_test_YYYYMMDD_HHMMSS.log`
 - 保留天数：7 天
 
-### Allure 报告
+### 测试结果
 
-- 结果目录：`report/allure-results/`
-- HTML 报告：`report/allure-html/`
-- 测试完成后自动打开浏览器
+- 结果目录：`report/allure-results/`（Allure JSON 格式）
+- 摘要文件：`report/allure-results/test_summary.json`（conftest.py 自动生成）
+- 企微通知：CI 环境下由 `notify.py` 读取摘要后发送
+
+### 企微通知配置
+
+在 GitLab CI/CD Variables 中配置：
+
+| 变量名 | 说明 |
+|--------|------|
+| `WECOM_WEBHOOK_URL` | 企业微信群机器人 webhook 地址 |
+| `WECOM_MENTIONED_LIST` | 可选，被 @ 的用户手机号，逗号分隔 |
+
+---
+
+## GitLab CI/CD
+
+### 流水线阶段
+
+| 阶段 | 说明 |
+|------|------|
+| `lint` | flake8 代码检查 |
+| `smoke_test` | pytest 冒烟测试，结果写入 JSON |
+| `notify` | 调用 `notify.py` 发送企微通知 |
+
+### 流程说明
+
+```
+lint → smoke_test → notify
+  │        │           │
+  │        └── JSON ────┘
+  │                   (notify.py 读取)
+  └── 失败则中断流水线
+```
 
 ---
 
@@ -394,12 +370,6 @@ cp .env.example .env
 1. 在 `api/` 下创建新的 API 类
 2. 在 `data/` 下创建对应的测试数据类
 3. 在 `testcases/` 下编写测试用例
-
-### Q: Allure 报告未自动生成？
-确保：
-1. allure-pytest 已安装
-2. allure 命令可用（Windows: `allure.bat`，Linux/Mac: `allure`）
-3. pytest.ini 中已配置 `--alluredir`
 
 ---
 

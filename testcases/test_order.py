@@ -18,7 +18,7 @@ from data.order_data import (
 )
 
 
-@pytest.mark.order
+@pytest.mark.entrust
 class TestEntrustedOrder:
     """委托订单列表接口测试"""
 
@@ -113,7 +113,7 @@ class TestEntrustedOrder:
             assert data.get("code") == 200, f"业务状态码异常: {data}"
 
 
-@pytest.mark.order
+@pytest.mark.business
 class TestBusinessOrder:
     """业务订单接口测试"""
 
@@ -199,7 +199,7 @@ class TestBusinessOrder:
             assert data.get("code") == 200, f"业务状态码异常: {data}"
 
 
-@pytest.mark.order
+@pytest.mark.validation
 class TestOrderDataValidation:
     """订单数据验证测试 - 深度验证返回数据"""
 
@@ -248,7 +248,7 @@ class TestOrderDataValidation:
                                 f"订单 {i+1} 的 {key} 字段不应为 None"
 
 
-@pytest.mark.order
+@pytest.mark.add
 class TestAddOrder:
     """新增订单接口测试"""
 
@@ -282,7 +282,7 @@ class TestAddOrder:
             assert "data" in data, "响应缺少 data 字段"
 
 
-@pytest.mark.order
+@pytest.mark.distribute
 class TestAddAndDistribute:
     """新增订单并分发流程测试"""
 
@@ -414,7 +414,7 @@ class TestAddAndDistribute:
             assert "service_item" in supplier, "supplier 缺少 service_item"
 
 
-@pytest.mark.order
+@pytest.mark.submit
 class TestSubmitOrder:
     """订单提交接口测试"""
 
@@ -503,7 +503,7 @@ class TestSubmitOrder:
             assert "status" in payload, "缺少 status"
 
 
-@pytest.mark.order
+@pytest.mark.workflow
 class TestFullWorkflow:
     """完整订单流程测试"""
 
