@@ -503,7 +503,7 @@ class TestSubmitOrder:
             assert "status" in payload, "缺少 status"
 
 
-@pytest.mark.order1
+@pytest.mark.order
 class TestFullWorkflow:
     """完整订单流程测试"""
 

@@ -48,46 +48,72 @@ def global_login():
     log.info("===== 全局登录fixture结束 =====")
 
 
-# ===================== 【修复版】钩子，不冲突 Allure =====================
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    # 这是【兼容版】，不会毁掉 Allure！
     outcome = yield
     report = outcome.get_result()
     setattr(item, "rep_" + report.when, report)
 
 
-# ===================== 统计逻辑不变 =====================
-def pytest_sessionfinish(session, exitstatus):
-    allure_dir = session.config.getoption("--alluredir")
-    if not allure_dir:
-        return
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    results = {"passed": [], "failed": [], "skipped": []}
 
-    allure_path = Path(allure_dir)
-    if not allure_path.exists() or not any(allure_path.iterdir()):
-        return
+    for report in terminalreporter.stats.get("passed", []):
+        results["passed"].append(_format_case(report))
 
-    summary = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "errors": []}
+    for report in terminalreporter.stats.get("failed", []):
+        results["failed"].append(_format_case(report))
 
-    for item in session.items:
-        if hasattr(item, "rep_call"):
-            rep = item.rep_call
-            summary["total"] += 1
-            if rep.passed:
-                summary["passed"] += 1
-            elif rep.failed:
-                summary["failed"] += 1
-                summary["errors"].append({
-                    "name": item.name,
-                    "message": str(rep.longrepr) if rep.longrepr else ""
-                })
-            elif rep.skipped:
-                summary["skipped"] += 1
+    for report in terminalreporter.stats.get("skipped", []):
+        results["skipped"].append(_format_case(report))
 
-    summary_path = Path(allure_dir) / "test_summary.json"
-    try:
-        with open(summary_path, "w", encoding="utf-8") as f:
-            json.dump(summary, f, ensure_ascii=False, indent=2)
-        log.info(f"✅ 测试摘要已写入: {summary_path}")
-    except Exception as e:
-        log.warning(f"⚠️ 写入测试摘要失败: {e}")
+    terminalreporter.write_sep("=", "测试结果汇总", bold=True, green=True)
+
+    terminalreporter.write_line("")
+    terminalreporter.write_line(f"  ✅ Passed : {len(results['passed'])}")
+    terminalreporter.write_line(f"  ❌ Failed : {len(results['failed'])}")
+    terminalreporter.write_line(f"  ⏭️  Skipped: {len(results['skipped'])}")
+    terminalreporter.write_line("")
+
+    if results["failed"]:
+        terminalreporter.write_sep("-", "失败用例详情", bold=True, red=True)
+        for item in results["failed"]:
+            terminalreporter.write_line(f"  ❌ {item['name']}")
+            terminalreporter.write_line(f"     标记 : {item['markers']}")
+            terminalreporter.write_line(f"     原因 : {item['message']}")
+            terminalreporter.write_line("")
+
+    report_dir = Path("report")
+    report_dir.mkdir(exist_ok=True)
+
+    summary_path = report_dir / "test_summary.json"
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "total": len(results["passed"]) + len(results["failed"]) + len(results["skipped"]),
+            "passed": len(results["passed"]),
+            "failed": len(results["failed"]),
+            "skipped": len(results["skipped"]),
+            "details": results,
+        }, f, ensure_ascii=False, indent=2)
+
+    terminalreporter.write_line(f"📄 报告已生成: {summary_path}")
+    terminalreporter.write_line("")
+
+
+def _format_case(report):
+    markers = [mark.name for mark in report.keywords if not mark.startswith("_")]
+    message = ""
+    if hasattr(report.longrepr, "message"):
+        message = report.longrepr.message
+    elif hasattr(report.longrepr, "reprcrash"):
+        message = report.longrepr.reprcrash.message
+    elif isinstance(report.longrepr, str):
+        message = report.longrepr
+
+    message = message.strip().replace("\n", " ")[:300]
+
+    return {
+        "name": f"{report.nodeid}",
+        "markers": markers or ["无标记"],
+        "message": message or "无",
+    }
