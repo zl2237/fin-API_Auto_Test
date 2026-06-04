@@ -7,6 +7,7 @@ stages:
 lint:
   stage: lint
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
@@ -21,6 +22,7 @@ lint:
 smoke_test:
   stage: smoke_test
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
@@ -44,6 +46,11 @@ smoke_test:
 # ③ 企微通知
 notify:
   stage: notify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
     - python3 notify.py
   needs:
