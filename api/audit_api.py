@@ -16,6 +16,8 @@ class AuditApi:
     _SEND_URLS = {
         "assetPush": "/api/order/orderFee/assetPush",                    # 资产推送
         "actualCostLockApplication": "/api/order/orderFee/realAmountSubmit",  # 订单锁定
+        "addLoanBeforeInvoiceApply": "/api/order/order/changeInvoiceApply",   # 未放款开票申请
+        "addSpecialPaymentFlag": "/api/order/order/changeSpecialPayRules",     # 供应商垫付申请
     }
 
     AUDIT_PAGE_URL = "/api/home/audit/auditPage"       # 查询审批列表
@@ -84,6 +86,20 @@ class AuditApi:
         )
         return http.post(cls._SEND_URLS["actualCostLockApplication"], json=payload)
 
+    @classmethod
+    def send_add_loan_before_invoice(cls, order_id: str) -> Any:
+        """发起未放款开票申请审批"""
+        from data.audit_data import AuditFlowData
+        payload = AuditFlowData._add_loan_before_invoice_payload(order_id)
+        return http.post(cls._SEND_URLS["addLoanBeforeInvoiceApply"], json=payload)
+
+    @classmethod
+    def send_add_special_payment_flag(cls, order_id: str) -> Any:
+        """发起供应商垫付申请审批"""
+        from data.audit_data import AuditFlowData
+        payload = AuditFlowData._add_special_payment_flag_payload(order_id)
+        return http.post(cls._SEND_URLS["addSpecialPaymentFlag"], json=payload)
+
     # =====================
     # 查询审批列表
     # =====================
@@ -96,6 +112,9 @@ class AuditApi:
         page_no: int = 1,
         page_size: int = 20,
         active_tab: str = "examine_send",
+        bl_no: str = None,
+        sort_field: str = "create_time",
+        sort_order: str = "desc",
     ) -> Any:
         """
         查询审批列表
@@ -106,6 +125,9 @@ class AuditApi:
             page_no     : 页码
             page_size   : 每页条数
             active_tab  : 标签页，'examine_send'=我发起的，'examine_wait'=我审批的
+            bl_no       : 提单号（用于精确筛选）
+            sort_field  : 排序字段，默认 'create_time'
+            sort_order  : 排序方向，默认 'desc'
 
         Returns:
             Response 对象
@@ -116,6 +138,9 @@ class AuditApi:
             page_no=page_no,
             page_size=page_size,
             active_tab=active_tab,
+            bl_no=bl_no,
+            sort_field=sort_field,
+            sort_order=sort_order,
         )
         return http.post(cls.AUDIT_PAGE_URL, json=payload)
 

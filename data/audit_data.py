@@ -31,7 +31,7 @@ class AuditFlowData:
     def _asset_push_payload(cls, order_id: str) -> Dict[str, Any]:
         cfg = _AUDIT_CFG["asset_push"]
         return {
-            "action": "submit",
+            "action": _AUDIT_CFG["submit_action"],
             "order_id": str(order_id),
             "audit_msg": {
                 "title": cfg["audit_msg"]["title"],
@@ -82,7 +82,7 @@ class AuditFlowData:
             })
 
         return {
-            "action": "submit",
+            "action": _AUDIT_CFG["submit_action"],
             "order_id": str(order_id),
             "container": enriched_container,
             "policy_type": policy_type,
@@ -98,6 +98,52 @@ class AuditFlowData:
         }
 
     # =====================
+    # 供应商垫付申请审批
+    # =====================
+
+    @classmethod
+    def _add_special_payment_flag_payload(
+        cls,
+        order_id: str,
+    ) -> Dict[str, Any]:
+        """发起供应商垫付申请审批的请求体"""
+        cfg = _AUDIT_CFG["add_special_payment_flag"]
+        return {
+            "audit_note": "",
+            "order_ids": [str(order_id)],
+            "action": _AUDIT_CFG["submit_action"],
+            "audit_msg": {
+                "title": cfg["audit_msg"]["title"],
+                "code": "",
+                "msgs": cfg["audit_msg"]["msgs"],
+            },
+            "select_node_user": cfg["select_node_user"],
+        }
+
+    # =====================
+    # 未放款开票申请审批
+    # =====================
+
+    @classmethod
+    def _add_loan_before_invoice_payload(
+        cls,
+        order_id: str,
+    ) -> Dict[str, Any]:
+        """发起未放款开票申请审批的请求体"""
+        cfg = _AUDIT_CFG["add_loan_before_invoice"]
+        return {
+            "audit_note": "",
+            "order_ids": [str(order_id)],
+            "action": _AUDIT_CFG["submit_action"],
+            "audit_msg": {
+                "title": cfg["audit_msg"]["title"],
+                "code": "",
+                "msgs": cfg["audit_msg"]["msgs"],
+            },
+            "select_node_user": cfg["select_node_user"],
+        }
+
+    # =====================
     # 查询待审批列表
     # =====================
 
@@ -106,23 +152,32 @@ class AuditFlowData:
         cls,
         audit_type: str,
         audit_status: List[str] = None,
-        page_no: int = 1,
-        page_size: int = 20,
-        active_tab: str = "examine_send",
+        page_no: int = None,
+        page_size: int = None,
+        active_tab: str = None,
+        bl_no: str = None,
+        sort_field: str = "create_time",
+        sort_order: str = "desc",
     ) -> Dict[str, Any]:
         """查询审批列表的请求体"""
         if audit_status is None:
-            audit_status = ["1"]
+            audit_status = [_AUDIT_CFG["query_audit_status_pending"]]
+        if active_tab is None:
+            active_tab = _AUDIT_CFG["query_active_tab"]
+        if page_no is None:
+            page_no = _AUDIT_CFG["query_page_no"]
+        if page_size is None:
+            page_size = _AUDIT_CFG["query_page_size"]
         return {
             "audit_status": audit_status,
             "page_no": page_no,
             "page_size": page_size,
             "active_tab": active_tab,
             "audit_type": [audit_type],
-            "sort_field": "create_time",
-            "sort_order": "desc",
-            "bl_nos": [],
-            "expedite_status": [],
+            "sort_field": sort_field,
+            "sort_order": sort_order,
+            "bl_nos": [bl_no] if bl_no else [],
+            "expedite_status": _AUDIT_CFG["query_expedite_status"],
             "create_id": [],
             "executor_id": [],
             "customer_id": [],
@@ -134,7 +189,7 @@ class AuditFlowData:
         """查询某类型最新一条审批记录"""
         return cls.query_pending_audits_payload(
             audit_type=audit_type,
-            audit_status=["1"],
+            audit_status=[_AUDIT_CFG["query_audit_status_pending"]],
             page_no=1,
             page_size=1,
         )
@@ -169,4 +224,6 @@ class AuditFlowData:
 AuditFlowData._BUILDERS = {
     "assetPush": AuditFlowData._asset_push_payload,
     "actualCostLockApplication": AuditFlowData._actual_cost_lock_payload,
+    "addLoanBeforeInvoiceApply": AuditFlowData._add_loan_before_invoice_payload,
+    "addSpecialPaymentFlag": AuditFlowData._add_special_payment_flag_payload,
 }
