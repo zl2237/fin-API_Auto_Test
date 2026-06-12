@@ -1179,31 +1179,6 @@ class OrderWorkflow:
         cls._attach_context(result)
         return result
 
-        # Step 3: allocationInvoiceFee - 登记发票到申请
-        with allure.step('登记发票到申请（allocationInvoiceFee）'):
-            # 使用 detail_data 中的 un_amount 作为登记金额
-            un_amount = detail_data.get("data", {}).get("un_amount", invoice_amount) or invoice_amount
-            invoice_arr = [{
-                "receive_invoice_id": str(receive_invoice_id),
-                "invoice_amount_use": str(un_amount),
-            }]
-            alloc_resp = InvoiceUploadApi.allocation_invoice_fee(
-                receive_invoice_apply_id=receive_invoice_apply_id,
-                invoice_arr=invoice_arr,
-            )
-            alloc_data = alloc_resp.json()
-            result['alloc_resp'] = alloc_resp
-            result['alloc_data'] = alloc_data
-            result['steps'].append({
-                'name': '登记发票到申请',
-                'code': alloc_data.get('code'),
-                'msg': alloc_data.get('msg'),
-                'receive_invoice_apply_id': receive_invoice_apply_id,
-            })
-
-        cls._attach_context(result)
-        return result
-
     @classmethod
     def record_generate_fee_confirm(
         cls,
