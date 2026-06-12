@@ -1,0 +1,43 @@
+# ============================================================================
+# 应收发票上传与登记配置（LK17）
+# ============================================================================
+# 涉及 3 个请求：
+#   1. invoiceAdd              - 上传应收发票
+#   2. applyDetail (invoiceDetail) - 获取发票申请ID
+#   3. allocationInvoiceFee     - 应收开票申请登记发票
+# ============================================================================
+
+_constants:
+  # invoice_type：1=增值税数电普通发票
+  invoice_type: "1"
+
+  # invoice_style：1=正式发票
+  invoice_style: "1"
+
+  # action
+  action_submit: "submit"
+
+  # identity
+  identity_customer: "customer"
+  identity_main: "main"
+
+_constants_for_add:
+  invoice_type_name: "增值税数电普通发票"
+  currency: "CNY"
+
+# 发票上传所需的企业信息（从测试数据中提取，稳定值）
+buyer:
+  chinese_header: "北京火山引擎科技有限公司"
+  identifier_no: "91110108MA01R70K8D"
+
+seller:
+  chinese_header: "青岛易航道物流科技有限公司"
+  identifier_no: "91370202MABU30PK3F"
+
+# 发票文件（支持上传真实文件或使用文件ID）
+# file_id / file_name / file_url / original_name 支持上传时真实传参
+invoice_file:
+  file_id: ""
+  file_name: ""
+  file_url: ""
+  original_name: ""

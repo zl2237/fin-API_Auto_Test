@@ -43,6 +43,11 @@ _RA_CONST = _RECEIVE_ACCOUNT_CFG.get("_constants", {})
 _RECEIVE_INVOICE_CFG = _load_yaml("receive_invoice")
 _RI_CONST = _RECEIVE_INVOICE_CFG.get("_constants", {}) if _RECEIVE_INVOICE_CFG else {}
 
+# ============================================================================
+# 应收发票上传与登记相关常量（统一从 receive_invoice_upload.yaml 读取）
+# ============================================================================
+_RECEIVE_INVOICE_UPLOAD_CFG = _load_yaml("receive_invoice_upload")
+
 # -- operate_type / account_type / confirm_type --
 OPERATE_TYPE_RECEIVABLE = _RA_CONST.get("operate_type", 1)
 ACCOUNT_TYPE_CROSS_CUSTOMER = _RA_CONST.get("account_type", "2")
