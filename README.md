@@ -4,10 +4,10 @@
 
 ## 项目简介
 
-本项目面向物流管理系统，采用分层设计，支持从**新建订单**到**生成费用确认单**的 12 条链路端到端测试，覆盖订单全生命周期、审批流及费用单生成。
+本项目面向物流管理系统，采用分层设计，支持从**新建订单**到**发起应收开票批次审批**的 15 条链路端到端测试，覆盖订单全生命周期、审批流及费用单生成。
 
 **核心能力：**
-- 12 条链路，覆盖从新建到费用确认单完整流程（按需执行，灵活组合）
+- 15 条链路，覆盖从新建到发起应收开票批次审批完整流程（按需执行，灵活组合）
 - workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
 - 资产推送审批 / 订单锁定审批 / 未放款开票申请审批 / 供应商垫付申请审批 内嵌于链路流程
 - 所有业务配置参数集中存储于 YAML 文件（订单、费用、审批流、费用通知单、费用确认单），Python 代码零硬编码
@@ -22,7 +22,9 @@
 pr_study/
 ├── api/                          # API 层
 │   ├── order.py                  # 订单接口封装（含费用通知单、费用确认单）
-│   └── audit_api.py              # 审批流接口封装
+│   ├── audit_api.py              # 审批流接口封装
+│   ├── finance_api.py            # 财务应收对账接口封装
+│   └── invoice_batch_api.py      # 应收开票批次接口封装
 │
 ├── config/                       # 配置层
 │   └── settings.py               # 全局配置（BASE_URL、登录凭证等，支持 .env）
@@ -36,11 +38,13 @@ pr_study/
 │   ├── audit.yaml                # 审批流配置（资产推送、订单锁定、开票申请、垫付申请）
 │   ├── fee_notice.yaml           # 费用通知单配置
 │   ├── fee_confirm.yaml          # 费用确认单配置
+│   ├── receive_account.yaml      # 应收对账配置
+│   ├── receive_invoice.yaml      # 应收开票批次配置
 │   ├── order_data.py             # 订单数据类（载荷构建）
 │   └── audit_data.py            # 审批数据类（载荷构建）
 │
 ├── testcases/                    # 测试用例层
-│   └── test_link.py              # 12 条链路测试（pytest 标记控制）
+│   └── test_link.py              # 15 条链路测试（pytest 标记控制）
 │
 ├── utils/                        # 工具模块
 │   ├── logger.py                 # 日志工具
@@ -111,6 +115,9 @@ pytest testcases/test_link.py -v
 pytest testcases/test_link.py -m link8      # 从 link8 开始
 pytest testcases/test_link.py -m "link11 or link12"  # 同时跑多条
 pytest testcases/test_link.py -m link12      # 仅链路12
+pytest testcases/test_link.py -m link13      # 仅链路13
+pytest testcases/test_link.py -m link14      # 仅链路14
+pytest testcases/test_link.py -m link15      # 仅链路15
 ```
 
 ### 4. 测试结果
@@ -124,7 +131,7 @@ pytest testcases/test_link.py -m link12      # 仅链路12
 
 ## 链路说明
 
-### 链路一览（12 条）
+### 链路一览（15 条）
 
 | 链路 | 停止阶段 | 覆盖步骤 |
 |------|----------|----------|
@@ -140,8 +147,11 @@ pytest testcases/test_link.py -m link12      # 仅链路12
 | link10 | 供应商垫付申请审批 | ... → 未放款开票申请审批 → 供应商垫付申请审批 |
 | link11 | 生成费用通知单 | ... → 供应商垫付申请审批 → **生成费用通知单** |
 | link12 | 生成费用确认单 | ... → **生成费用通知单** → **生成费用确认单** |
+| link13 | 发起应收对账批次 | ... → **生成费用确认单** → **发起应收对账批次** |
+| link14 | 确认应收对账 | ... → **发起应收对账批次** → **确认应收对账** |
+| link15 | 发起应收开票批次审批 | ... → **确认应收对账** → **发起应收开票批次审批** |
 
-> 链路按依赖顺序递增：link8 隐含 link7 的全部步骤，link12 隐含 link1~link11 的全部步骤。
+> 链路按依赖顺序递增：link8 隐含 link7 的全部步骤，link15 隐含 link1~link14 的全部步骤。
 
 ---
 
@@ -185,6 +195,13 @@ pytest testcases/test_link.py -m link12      # 仅链路12
 | `query_pending_audits()` | POST /api/home/audit/auditPage | 查询审批列表 |
 | `audit_execute()` | POST /api/home/audit/auditExecute | 执行审批（通过 / 拒绝） |
 
+### 财务应收对账 API（`api/finance_api.py`）
+
+| 方法 | 接口 | 说明 |
+|------|------|------|
+| `query_finance_put_list()` | POST /api/finance/accountFee/financePutList | 查询应收款项列表（用于预填充 select_list） |
+| `edit_receive_account()` | POST /api/finance/receiveAccount/orderReceiveAccountEdit | 应收对账批次编辑（action=check 预校验 / action=submit 正式提交） |
+
 ---
 
 ## 配置文件说明
@@ -198,6 +215,7 @@ pytest testcases/test_link.py -m link12      # 仅链路12
 | `audit.yaml` | 资产推送审批、订单锁定审批、未放款开票申请审批、供应商垫付申请审批 的标题/消息/审批人配置 |
 | `fee_notice.yaml` | 生成费用通知单的 action、finance_ids、bank_ids |
 | `fee_confirm.yaml` | 生成费用确认单的 action、finance_ids、bank_ids |
+| `receive_account.yaml` | 应收对账批次查询/预校验/提交接口的默认参数 |
 
 > 调整测试数据时只需修改对应 YAML 文件，无需改动 Python 代码。
 
@@ -219,7 +237,10 @@ result = OrderWorkflow.full_flow(
 # === 方式二：快捷方法 ===
 result = OrderWorkflow.run_until_fee_confirm()
 
-# === 方式三：直接调用 API ===
+# === 方式三：执行到应收对账批次 ===
+result = OrderWorkflow.run_until_receive_account()
+
+# === 方式四：直接调用 API ===
 from api.order import OrderApi
 
 resp = OrderApi.add_order(bl_no="TEST_BL_001")

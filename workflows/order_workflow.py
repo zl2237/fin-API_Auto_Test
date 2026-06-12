@@ -1,6 +1,7 @@
 """
 订单流程编排 - 串联订单各阶段 API，自动处理数据依赖
 """
+import json
 import time
 from typing import Dict, Any, List
 
@@ -9,7 +10,17 @@ import allure
 from core.http_client import http
 from api.order import OrderApi
 from api.audit_api import AuditApi
-from data.order_data import generate_bl_no, BookRealAmountData, FeeNoticeData, FeeConfirmData
+from api.finance_api import FinanceApi, _default_main_id
+from data.order_data import (
+    generate_bl_no,
+    BookRealAmountData,
+    FeeNoticeData,
+    FeeConfirmData,
+    ReceiveAccountData,
+    ACTION_CHECK,
+    ACTION_SUBMIT,
+    CONFIRM_TYPE_PENDING,
+)
 
 
 class OrderWorkflow:
@@ -427,6 +438,469 @@ class OrderWorkflow:
         return result
 
     @classmethod
+    def record_receive_account(
+        cls,
+        bl_no: str,
+        put_settle_object_id: str,
+        main_id: str,
+        put_settle_object: str,
+        main_name: str,
+    ) -> Dict[str, Any]:
+        """
+        发起应收对账批次（financePutList 查询 → check 预校验 → submit 正式提交）
+
+        三个请求共享相同的 select_list（来自 financePutList 响应 data.data）。
+
+        Args:
+            bl_no                : 提单号
+            put_settle_object_id : 托单结算对象ID
+            main_id              : 主体ID
+            put_settle_object    : 托单结算对象名称
+            main_name            : 主体名称
+
+        Returns:
+            {
+                'bl_no': str,
+                'put_list_resp': Response,
+                'put_list_data': dict,
+                'select_list': [...],
+                'check_resp': Response,
+                'check_data': dict,
+                'submit_resp': Response,
+                'submit_data': dict,
+                'receive_account_id': str,
+                'receive_account_no': str,
+                'steps': [...],
+            }
+        """
+        result = {
+            'bl_no': bl_no,
+            'steps': [],
+        }
+
+        # Step 1: financePutList - 查询应收款项列表
+        with allure.step('查询应收款项列表（financePutList）'):
+            put_list_resp = FinanceApi.query_finance_put_list(
+                bl_no=bl_no,
+                put_settle_object_id=put_settle_object_id,
+                main_id=main_id,
+            )
+            put_list_data = put_list_resp.json()
+            result['put_list_resp'] = put_list_resp
+            result['put_list_data'] = put_list_data
+            result['steps'].append({
+                'name': '查询应收款项列表',
+                'code': put_list_data.get('code'),
+                'msg': put_list_data.get('msg'),
+            })
+
+        # 从 financePutList 响应构建 select_list
+        select_list = ReceiveAccountData.build_select_list_from_put_list(put_list_data.get('data', {}))
+        result['select_list'] = select_list
+
+        # Step 2: orderReceiveAccountEdit (action=check) - 预校验
+        with allure.step('应收对账预校验（action=check）'):
+            check_resp = FinanceApi.edit_receive_account(
+                action=ACTION_CHECK,
+                put_settle_object_id=put_settle_object_id,
+                main_id=main_id,
+                put_settle_object=put_settle_object,
+                main_name=main_name,
+                select_list=select_list,
+            )
+            check_data = check_resp.json()
+            result['check_resp'] = check_resp
+            result['check_data'] = check_data
+            result['steps'].append({
+                'name': '应收对账预校验',
+                'code': check_data.get('code'),
+                'msg': check_data.get('msg'),
+            })
+
+        # Step 3: orderReceiveAccountEdit (action=submit) - 正式发起
+        with allure.step('发起应收对账批次（action=submit）'):
+            submit_resp = FinanceApi.edit_receive_account(
+                action=ACTION_SUBMIT,
+                put_settle_object_id=put_settle_object_id,
+                main_id=main_id,
+                put_settle_object=put_settle_object,
+                main_name=main_name,
+                select_list=select_list,
+            )
+            submit_data = submit_resp.json()
+            result['submit_resp'] = submit_resp
+            result['submit_data'] = submit_data
+
+            submit_data_inner = submit_data.get('data', {})
+            result['receive_account_id'] = submit_data_inner.get('receive_account_id', '')
+            result['receive_account_no'] = submit_data_inner.get('receive_account_no', '')
+
+            result['steps'].append({
+                'name': '发起应收对账批次',
+                'code': submit_data.get('code'),
+                'msg': submit_data.get('msg'),
+                'receive_account_id': result['receive_account_id'],
+                'receive_account_no': result['receive_account_no'],
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_confirm_account(
+        cls,
+        receive_account_id: str,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """
+        确认应收对账（receiveConfirmList 查询 → accountConfirm 确认 → receiveAccountPage 验证）
+
+        Args:
+            receive_account_id: 应收对账批次ID（来自 record_receive_account 响应）
+            bl_no: 提单号（用于确认后查询验证）
+
+        Returns:
+            {
+                'receive_account_id': str,
+                'detail_resp': Response,
+                'detail_data': dict,
+                'confirm_list_resp': Response,
+                'confirm_list_data': dict,
+                'confirm_list': [...],
+                'submit_resp': Response,
+                'submit_data': dict,
+                'page_resp': Response,
+                'page_data': dict,
+                'steps': [...],
+            }
+        """
+        result = {
+            'receive_account_id': receive_account_id,
+            'steps': [],
+        }
+
+        # Step 1: receiveAccountDetail - 查询批次详情
+        with allure.step('查询应收对账批次详情（receiveAccountDetail）'):
+            detail_resp = FinanceApi.get_receive_account_detail(
+                receive_account_id=receive_account_id,
+            )
+            detail_data = detail_resp.json()
+            result['detail_resp'] = detail_resp
+            result['detail_data'] = detail_data
+            result['steps'].append({
+                'name': '查询应收对账批次详情',
+                'code': detail_data.get('code'),
+                'msg': detail_data.get('msg'),
+            })
+
+        # Step 2: receiveConfirmList - 查询应收确认列表
+        with allure.step('查询应收确认列表（receiveConfirmList）'):
+            confirm_list_resp = FinanceApi.get_receive_confirm_list(
+                receive_account_id=receive_account_id,
+                confirm_type=CONFIRM_TYPE_PENDING,
+            )
+            confirm_list_data = confirm_list_resp.json()
+            result['confirm_list_resp'] = confirm_list_resp
+            result['confirm_list_data'] = confirm_list_data
+
+            confirm_list = confirm_list_data.get('data', []) or []
+            result['confirm_list'] = confirm_list
+
+            result['steps'].append({
+                'name': '查询应收确认列表',
+                'code': confirm_list_data.get('code'),
+                'msg': confirm_list_data.get('msg'),
+                'confirm_count': len(confirm_list),
+            })
+
+        # Step 3: accountConfirm - 确认应收对账
+        with allure.step('确认应收对账（accountConfirm）'):
+            submit_resp = FinanceApi.confirm_receive_account(
+                receive_account_id=receive_account_id,
+                confirm_list=confirm_list,
+                confirm_type=CONFIRM_TYPE_PENDING,
+            )
+            submit_data = submit_resp.json()
+            result['submit_resp'] = submit_resp
+            result['submit_data'] = submit_data
+            result['steps'].append({
+                'name': '确认应收对账',
+                'code': submit_data.get('code'),
+                'msg': submit_data.get('msg'),
+            })
+
+        # Step 4: receiveAccountPage - 确认后查询批次列表（验证状态）
+        with allure.step('确认后查询批次列表（receiveAccountPage）'):
+            page_resp = FinanceApi.get_receive_account_page(
+                bl_nos=[bl_no] if bl_no else [],
+            )
+            page_data = page_resp.json()
+            result['page_resp'] = page_resp
+            result['page_data'] = page_data
+            result['steps'].append({
+                'name': '确认后查询批次列表',
+                'code': page_data.get('code'),
+                'msg': page_data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_invoice_batch(
+        cls,
+        bl_no: str,
+        put_settle_object_id: str,
+        main_id: str,
+        put_settle_object: str,
+        main_name: str,
+        order_fee_real_ids: List[str],
+        order_sub_ids: List[str],
+        order_sub_customer_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        发起应收开票批次审批
+
+        流程：financePutList → monthExchangeRate → getSellInfo → batchOrderEdit(submit) → batchpage(verify)
+
+        Args:
+            bl_no                   : 提单号
+            put_settle_object_id    : 托单结算对象ID
+            main_id                : 主体ID
+            put_settle_object      : 托单结算对象名称
+            main_name              : 主体名称
+            order_fee_real_ids     : 费用ID列表（来自 financePutList amount_list）
+            order_sub_ids          : 子订单ID列表
+            order_sub_customer_ids : 子订单客户ID列表
+
+        Returns:
+            {
+                'put_list_resp' / 'put_list_data' / 'put_list_data_records': ...,
+                'rate_resp' / 'rate_data' / 'exchange_rate': ...,
+                'sell_info_resp' / 'sell_info_data' / 'seller_list': ...,
+                'submit_resp' / 'submit_data' / 'batch_id' / 'batch_no': ...,
+                'page_resp' / 'page_data': ...,
+                'steps': [...],
+            }
+        """
+        from api.invoice_batch_api import InvoiceBatchApi
+        from data.order_data import (
+            INVOICE_USD_TURN_ON,
+            INVOICE_MERGE_CNY_NO,
+            INVOICE_RATE_TYPE_SPECIFY,
+            INVOICE_DEFAULT_RATE,
+            INVOICE_DEFAULT_FORM,
+            INVOICE_DEFAULT_TYPE,
+            INVOICE_DEFAULT_ITEM,
+        )
+
+        result: Dict[str, Any] = {"bl_no": bl_no, "steps": []}
+
+        # Step 1: financePutList（开票模式）查询应收款项
+        with allure.step('查询应收款项列表（financePutList 开票模式）'):
+            put_list_resp = InvoiceBatchApi.query_finance_put_list_for_invoice(
+                bl_no=bl_no,
+                put_settle_object_id=put_settle_object_id,
+                main_id=main_id,
+            )
+            put_list_data = put_list_resp.json()
+            result['put_list_resp'] = put_list_resp
+            result['put_list_data'] = put_list_data
+            result['steps'].append({
+                'name': '查询应收款项列表（开票）',
+                'code': put_list_data.get('code'),
+                'msg': put_list_data.get('msg'),
+            })
+
+        # Step 2: monthExchangeRate 获取汇率
+        with allure.step('获取汇率（monthExchangeRate）'):
+            rate_resp = InvoiceBatchApi.get_month_exchange_rate(main_id=main_id)
+            rate_data = rate_resp.json()
+            result['rate_resp'] = rate_resp
+            result['rate_data'] = rate_data
+            exchange_rate = rate_data.get('data', {}).get('rate', '7')
+            if not exchange_rate:
+                exchange_rate = str(INVOICE_DEFAULT_RATE)
+            result['exchange_rate'] = exchange_rate
+            result['steps'].append({
+                'name': '获取汇率',
+                'code': rate_data.get('code'),
+                'msg': rate_data.get('msg'),
+                'rate': exchange_rate,
+            })
+
+        # Step 3: getSellInfo 获取开票方信息（需要先有 purchaser 信息）
+        # 从 put_list_data 中提取 amount_list 构建 fee_usd_total 和 order_fee_real_ids
+        put_records = put_list_data.get('data', {}).get('data', []) or []
+        fee_usd_total = "0.00"
+        real_fee_ids = []
+        real_order_sub_ids = []
+        real_order_sub_customer_ids = []
+        if put_records:
+            record = put_records[0]
+            amount_list = record.get('amount_list', []) or []
+            total = sum(float(item.get('real_amount', 0)) for item in amount_list)
+            fee_usd_total = f"{total:.2f}"
+            real_fee_ids = [str(item.get('order_fee_real_id', '')) for item in amount_list if item.get('order_fee_real_id')]
+            real_order_sub_id = str(record.get('order_sub_id', ''))
+            real_order_sub_ids = [real_order_sub_id] if real_order_sub_id else order_sub_ids
+            real_order_sub_customer_id = str(record.get('customer_id', ''))
+            real_order_sub_customer_ids = [real_order_sub_customer_id] if real_order_sub_customer_id else order_sub_customer_ids
+            # 确保 put_settle_object 和 main_name 与查询结果一致
+            if record.get('put_settle_object'):
+                put_settle_object = record.get('put_settle_object', put_settle_object)
+            if record.get('main_name'):
+                main_name = record.get('main_name', main_name)
+
+        if not real_fee_ids:
+            cls._attach_context(result)
+            raise AssertionError(f'financePutList 响应中 amount_list 为空，无法发起应收开票批次: {put_list_data}')
+
+        with allure.step('获取开票方信息（getSellInfo）'):
+            sell_info_resp = InvoiceBatchApi.get_sell_info(
+                put_settle_object_id=put_settle_object_id,
+                put_settle_object=put_settle_object,
+                main_id=main_id,
+                main_name_cn=main_name,
+                order_fee_real_ids=real_fee_ids,
+                order_sub_ids=real_order_sub_ids,
+                sys_rate=exchange_rate,
+                usd_is_turn=INVOICE_USD_TURN_ON,
+            )
+            sell_info_data = sell_info_resp.json()
+            result['sell_info_resp'] = sell_info_resp
+            result['sell_info_data'] = sell_info_data
+            seller_list = sell_info_data.get('data', []) or []
+            result['seller_list'] = seller_list
+            result['steps'].append({
+                'name': '获取开票方信息',
+                'code': sell_info_data.get('code'),
+                'msg': sell_info_data.get('msg'),
+                'seller_count': len(seller_list),
+            })
+
+        # Step 4: batchOrderEdit(submit) 正式提交开票批次
+        # 构建 usd_require：使用卖家信息（seller_id）和 purchaser 信息
+        usd_seller = seller_list[0] if seller_list else {}
+        usd_purchaser = seller_list[1] if len(seller_list) > 1 else seller_list[0] if seller_list else {}
+
+        usd_require = {
+            "fast_remark": "[]",
+            "currency": "CNY",
+            "amount_total_usd": float(fee_usd_total) if fee_usd_total else 0,
+            "amount_total_cny": "",
+            "rate": float(exchange_rate) if exchange_rate else 0,
+            "turn_amount_total_cny": f"{float(fee_usd_total) * float(exchange_rate):.2f}" if fee_usd_total and exchange_rate else "0.00",
+            "turn_amount_total_usd": "",
+            "turn_amount_total": f"{float(fee_usd_total) * float(exchange_rate):.2f}" if fee_usd_total and exchange_rate else "0.00",
+            "invoice_apply_name": f"{main_name} + {put_settle_object} + 2026-05 + USD {fee_usd_total}",
+            "invoice_apply_simple": "",
+            "invoice_form": INVOICE_DEFAULT_FORM,
+            "invoice_type": INVOICE_DEFAULT_TYPE,
+            "purchaser_id": str(put_settle_object_id),
+            "purchaser_head_cn": put_settle_object,
+            "purchaser_tax_number": usd_purchaser.get('identifier_no', ''),
+            "seller_id": usd_seller.get('order_main_finance_id', ''),
+            "seller_name": usd_seller.get('bank_account', ''),
+            "bank_account": "",
+            "seller_info": json.dumps(usd_seller),
+            "invoice_items": "",
+            "invoice_rate_type": "",
+            "invoice_rate": "",
+            "require_other": "暂无要求",
+            "remark": "—",
+            "rate_list": [
+                {
+                    "cost_name": item.get('fee_real_name', ''),
+                    "fee_real_no": item.get('fee_real_no', ''),
+                    "cost_no": item.get('cost_no', ''),
+                    "invoice_rate": str(INVOICE_DEFAULT_RATE),
+                    "real_amount": item.get('real_amount', '0.00'),
+                    "currency": item.get('currency', 'USD'),
+                    "invoice_item": INVOICE_DEFAULT_ITEM,
+                    "amount_error_flag": False,
+                    "rowIndex": idx,
+                    "invoice_item_name": "国际货物运输代理海运费",
+                }
+                for idx, item in enumerate(put_records[0].get('amount_list', []) or [])
+            ] if put_records and put_records[0].get('amount_list') else [],
+            "purchaser_name": put_settle_object,
+            "fund_name": usd_seller.get('fund_name', ''),
+        }
+        cny_require = {
+            "fast_remark": "[]",
+            "currency": "",
+            "amount_total_usd": "",
+            "amount_total_cny": "",
+            "rate": "",
+            "turn_amount_total_cny": "",
+            "turn_amount_total_usd": "",
+            "turn_amount_total": "",
+            "invoice_apply_name": "",
+            "invoice_apply_simple": "",
+            "invoice_form": "",
+            "invoice_type": "",
+            "purchaser_id": "",
+            "purchaser_head_cn": "",
+            "purchaser_tax_number": "",
+            "seller_id": "",
+            "seller_name": "",
+            "bank_account": "",
+            "seller_info": "",
+            "invoice_items": "",
+            "invoice_rate_type": "",
+            "invoice_rate": "",
+            "require_other": "",
+            "remark": "—",
+            "rate_list": [],
+        }
+
+        with allure.step('提交应收开票批次申请（batchOrderEdit submit）'):
+            submit_resp = InvoiceBatchApi.batch_order_edit(
+                action="submit",
+                put_settle_object_id=put_settle_object_id,
+                put_settle_object=put_settle_object,
+                main_id=main_id,
+                main_name_cn=main_name,
+                order_fee_real_ids=real_fee_ids,
+                order_sub_ids=real_order_sub_ids,
+                order_sub_customer_ids=real_order_sub_customer_ids,
+                usd_require=usd_require,
+                cny_require=cny_require,
+                sys_rate=exchange_rate,
+                appoint_rate=str(INVOICE_DEFAULT_RATE),
+                cost_usd=fee_usd_total,
+                cost_cny="0.00",
+                rate_type=INVOICE_RATE_TYPE_SPECIFY,
+                audit_msg={"title": "开票批次ID", "code": None, "msgs": ["应收开票批次申请"]},
+                select_node_user=[],
+                fee_currency="USD",
+            )
+            invoice_submit_data = submit_resp.json()
+            result['invoice_submit_resp'] = submit_resp
+            result['invoice_submit_data'] = invoice_submit_data
+            result['steps'].append({
+                'name': '提交应收开票批次申请',
+                'code': invoice_submit_data.get('code'),
+                'msg': invoice_submit_data.get('msg'),
+            })
+
+        # Step 5: batchpage 验证批次创建
+        with allure.step('验证应收开票批次（batchpage）'):
+            page_resp = InvoiceBatchApi.query_batch_page(bl_no=bl_no)
+            page_data = page_resp.json()
+            result['page_resp'] = page_resp
+            result['page_data'] = page_data
+            result['steps'].append({
+                'name': '验证应收开票批次',
+                'code': page_data.get('code'),
+                'msg': page_data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
     def record_generate_fee_confirm(
         cls,
         order_id: str,
@@ -788,6 +1262,9 @@ class OrderWorkflow:
                 - 'supplier_advance'   新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批
                 - 'fee_notice'         新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 生成费用通知单
                 - 'fee_confirm'        新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 生成费用通知单 + 生成费用确认单
+                - 'receive_account'   新建 + ... + 生成费用通知单 + 生成费用确认单 + 发起应收对账批次
+                - 'confirm_account'  新建 + ... + 发起应收对账批次 + 确认应收对账
+                - 'invoice_batch'    新建 + ... + 确认应收对账 + 发起应收开票批次审批
             skip_stash: 是否跳过暂存
             fee_configs: 录费用配置列表（stop_at='record_fee' 时使用）
 
@@ -919,7 +1396,7 @@ class OrderWorkflow:
             })
 
         # Step 8: 生成子订单
-        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step(f'[{stop_at}] Step7: 生成子订单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -936,10 +1413,10 @@ class OrderWorkflow:
                 })
 
         # Step 9: 录费用（含资产推送审计）
-        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step(f'[{stop_at}] Step8: 录费用'):
                 order_id = after_submit_order.get('order_id')
-                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm')
+                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch')
                 fee_result = cls.record_fee(
                     order_id=order_id,
                     fee_configs=fee_configs or [],
@@ -951,7 +1428,7 @@ class OrderWorkflow:
         # assetPush 已在 record_fee 内部完成（audit_after_fee=True）
 
         # Step 10: 订单锁定审批
-        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step(f'[{stop_at}] Step10: 订单锁定审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -962,7 +1439,7 @@ class OrderWorkflow:
                 result['steps'].extend(lock_result['steps'])
 
         # Step 11: 未放款开票申请审批
-        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step('[invoice_apply] Step11: 未放款开票申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -973,7 +1450,7 @@ class OrderWorkflow:
                 result['steps'].extend(invoice_result['steps'])
 
         # Step 12: 供应商垫付申请审批
-        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm'):
+        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step('[supplier_advance] Step12: 供应商垫付申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -984,7 +1461,7 @@ class OrderWorkflow:
                 result['steps'].extend(advance_result['steps'])
 
         # Step 13: 生成费用通知单
-        if stop_at in ('fee_notice', 'fee_confirm'):
+        if stop_at in ('fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step('[fee_notice] Step13: 生成费用通知单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -995,7 +1472,7 @@ class OrderWorkflow:
                 result['steps'].extend(notice_result['steps'])
 
         # Step 14: 生成费用确认单
-        if stop_at == 'fee_confirm':
+        if stop_at in ('fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
             with allure.step('[fee_confirm] Step14: 生成费用确认单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1004,6 +1481,117 @@ class OrderWorkflow:
                 confirm_result = cls.record_generate_fee_confirm(order_id=order_id)
                 result['fee_confirm_result'] = confirm_result
                 result['steps'].extend(confirm_result['steps'])
+
+        # Step 15: 发起应收对账批次
+        if stop_at in ('receive_account', 'confirm_account', 'invoice_batch'):
+            with allure.step('[receive_account] Step15: 发起应收对账批次'):
+                # 从 fee_confirm_result 中提取结算对象信息
+                confirm_result = result.get('fee_confirm_result')
+                if not confirm_result:
+                    cls._attach_context(result)
+                    raise AssertionError('fee_confirm_result 不存在，无法发起应收对账批次')
+
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法发起应收对账批次')
+
+                # 从 fee_confirm 结果中提取结算对象信息
+                fee_confirm_data = confirm_result.get('data', {}).get('data', {})
+
+                # put_settle_object_id 从 fee.yaml 客户配置中提取（托单结算对象）
+                put_settle_object_id = BookRealAmountData.get_customer_settle_object_id()
+                # put_settle_object / main_id / main_name 从 after_submit_order 中提取
+                submit_order = result.get('after_submit_order', {})
+                put_settle_object = submit_order.get('put_settle_object', '')
+                # main_id 优先取 order 数据，没有则回退 YAML 默认值
+                main_id = submit_order.get('main_id') or _default_main_id()
+                main_name = submit_order.get('main_name', '')
+
+                if not put_settle_object_id:
+                    cls._attach_context(result)
+                    raise AssertionError('fee.yaml 客户费用配置中缺少 settle_object_id，无法发起应收对账批次')
+
+                receive_result = cls.record_receive_account(
+                    bl_no=bl_no,
+                    put_settle_object_id=put_settle_object_id,
+                    main_id=main_id,
+                    put_settle_object=put_settle_object,
+                    main_name=main_name,
+                )
+                result['receive_account_result'] = receive_result
+                result['steps'].extend(receive_result['steps'])
+
+        # Step 16: 确认应收对账
+        if stop_at in ('confirm_account', 'invoice_batch'):
+            with allure.step('[confirm_account] Step16: 确认应收对账'):
+                receive_result = result.get('receive_account_result')
+                if not receive_result:
+                    cls._attach_context(result)
+                    raise AssertionError('receive_account_result 不存在，无法确认应收对账')
+
+                receive_account_id = receive_result.get('receive_account_id')
+                if not receive_account_id:
+                    cls._attach_context(result)
+                    raise AssertionError('receive_account_id 不存在，无法确认应收对账')
+
+                confirm_result = cls.record_confirm_account(
+                    receive_account_id=receive_account_id,
+                    bl_no=bl_no,
+                )
+                result['confirm_account_result'] = confirm_result
+                result['steps'].extend(confirm_result['steps'])
+
+        # Step 17: 发起应收开票批次审批
+        if stop_at == 'invoice_batch':
+            with allure.step('[invoice_batch] Step17: 发起应收开票批次审批'):
+                confirm_result = result.get('confirm_account_result')
+                if not confirm_result:
+                    cls._attach_context(result)
+                    raise AssertionError('confirm_account_result 不存在，无法发起应收开票批次审批')
+
+                # 从 fee_confirm_result 中提取结算对象信息
+                fee_confirm_result = result.get('fee_confirm_result')
+                if not fee_confirm_result:
+                    cls._attach_context(result)
+                    raise AssertionError('fee_confirm_result 不存在，无法发起应收开票批次审批')
+
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法发起应收开票批次审批')
+
+                # put_settle_object_id 从 fee.yaml 客户配置中提取（托单结算对象）
+                put_settle_object_id = BookRealAmountData.get_customer_settle_object_id()
+                submit_order = result.get('after_submit_order', {})
+                put_settle_object = submit_order.get('put_settle_object', '')
+                main_id = submit_order.get('main_id') or _default_main_id()
+                main_name = submit_order.get('main_name', '')
+
+                if not put_settle_object_id:
+                    cls._attach_context(result)
+                    raise AssertionError('fee.yaml 客户费用配置中缺少 settle_object_id，无法发起应收开票批次审批')
+
+                # 从 fee_confirm_result 中提取费用行数据，构建 order_fee_real_ids
+                fee_confirm_data = fee_confirm_result.get('data', {}).get('data', {})
+                fee_list = fee_confirm_data.get('fee_list', []) or []
+
+                order_fee_real_ids = [str(item.get('order_fee_real_id', '')) for item in fee_list]
+                order_sub_ids = [str(after_submit_order.get('order_sub_id', ''))]
+                order_sub_customer_ids = [str(after_submit_order.get('customer_id', ''))]
+
+                invoice_result = cls.record_invoice_batch(
+                    bl_no=bl_no,
+                    put_settle_object_id=put_settle_object_id,
+                    main_id=main_id,
+                    put_settle_object=put_settle_object,
+                    main_name=main_name,
+                    order_fee_real_ids=order_fee_real_ids,
+                    order_sub_ids=order_sub_ids,
+                    order_sub_customer_ids=order_sub_customer_ids,
+                )
+                result['invoice_batch_result'] = invoice_result
+                result['steps'].extend(invoice_result['steps'])
 
         cls._attach_context(result)
         return result
@@ -1120,5 +1708,31 @@ class OrderWorkflow:
         return cls.full_flow(
             bl_no=bl_no,
             stop_at='fee_confirm',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_receive_account(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到发起应收对账批次阶段（含资产推送 + 订单锁定 + 未放款开票申请 + 供应商垫付申请 + 费用通知单 + 费用确认单 + 应收对账批次）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='receive_account',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_confirm_account(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到确认应收对账阶段（含发起应收对账批次 + 确认应收对账）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='confirm_account',
             fee_configs=fee_configs,
         )
