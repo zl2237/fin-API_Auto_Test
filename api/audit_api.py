@@ -115,6 +115,7 @@ class AuditApi:
         bl_no: str = None,
         sort_field: str = "create_time",
         sort_order: str = "desc",
+        relation_id: str = None,
     ) -> Any:
         """
         查询审批列表
@@ -128,6 +129,7 @@ class AuditApi:
             bl_no       : 提单号（用于精确筛选）
             sort_field  : 排序字段，默认 'create_time'
             sort_order  : 排序方向，默认 'desc'
+            relation_id : 关联业务ID（精确筛选）
 
         Returns:
             Response 对象
@@ -141,8 +143,44 @@ class AuditApi:
             bl_no=bl_no,
             sort_field=sort_field,
             sort_order=sort_order,
+            relation_id=relation_id,
         )
         return http.post(cls.AUDIT_PAGE_URL, json=payload)
+
+    # =====================
+    # 开票批次审批快捷方法
+    # =====================
+
+    @classmethod
+    def query_invoice_batch_audit(
+        cls,
+        relation_id: str = None,
+        audit_status: list = None,
+        page_no: int = 1,
+        page_size: int = 20,
+        active_tab: str = "examine_wait",
+    ) -> Any:
+        """
+        查询应收开票批次审批列表
+
+        Args:
+            relation_id  : 关联业务ID（来自 batchOrderEdit 响应中的 batch_id）
+            audit_status : 审批状态列表，默认 ['1']
+            page_no      : 页码
+            page_size    : 每页条数
+            active_tab   : 标签页，'examine_wait'=待我审批
+
+        Returns:
+            Response 对象
+        """
+        return cls.query_pending_audits(
+            audit_type="invoiceBatchApplication",
+            audit_status=audit_status,
+            page_no=page_no,
+            page_size=page_size,
+            active_tab=active_tab,
+            relation_id=relation_id,
+        )
 
     # =====================
     # 执行审批

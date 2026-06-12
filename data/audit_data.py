@@ -158,6 +158,7 @@ class AuditFlowData:
         bl_no: str = None,
         sort_field: str = "create_time",
         sort_order: str = "desc",
+        relation_id: str = None,
     ) -> Dict[str, Any]:
         """查询审批列表的请求体"""
         if audit_status is None:
@@ -168,6 +169,9 @@ class AuditFlowData:
             page_no = _AUDIT_CFG["query_page_no"]
         if page_size is None:
             page_size = _AUDIT_CFG["query_page_size"]
+        params: Dict[str, Any] = {}
+        if relation_id:
+            params["relation_id"] = str(relation_id)
         return {
             "audit_status": audit_status,
             "page_no": page_no,
@@ -181,17 +185,25 @@ class AuditFlowData:
             "create_id": [],
             "executor_id": [],
             "customer_id": [],
-            "params": {},
+            "put_settle_object_id": [],
+            "main_id": [],
+            "invoice_apply_currency": [],
+            "params": params,
         }
 
     @classmethod
-    def get_latest_audit_id(cls, audit_type: str) -> Dict[str, Any]:
+    def get_latest_audit_id(
+        cls,
+        audit_type: str,
+        relation_id: str = None,
+    ) -> Dict[str, Any]:
         """查询某类型最新一条审批记录"""
         return cls.query_pending_audits_payload(
             audit_type=audit_type,
             audit_status=[_AUDIT_CFG["query_audit_status_pending"]],
             page_no=1,
             page_size=1,
+            relation_id=relation_id,
         )
 
     # =====================

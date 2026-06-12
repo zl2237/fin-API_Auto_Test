@@ -897,6 +897,85 @@ class OrderWorkflow:
                 'msg': page_data.get('msg'),
             })
 
+            # 从批次列表中提取最新一条的 batch_id
+            records = page_data.get("data", {}).get("data", []) or []
+            result['batch_id'] = records[0].get("receive_invoice_batch_id", "") if records else ""
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_invoice_batch_audit(
+        cls,
+        batch_id: str,
+    ) -> Dict[str, Any]:
+        """
+        审核生成开票申请（查询审批ID → 审批通过）
+
+        Args:
+            batch_id: 开票批次ID（来自 record_invoice_batch 响应中的 batch_id）
+
+        Returns:
+            {
+                'batch_id': str,
+                'audit_query_resp': Response,
+                'audit_query_data': dict,
+                'audit_id': str,
+                'audit_execute_resp': Response,
+                'audit_execute_data': dict,
+                'steps': [...],
+            }
+        """
+        result: Dict[str, Any] = {
+            "batch_id": batch_id,
+            "steps": [],
+        }
+
+        # Step 1: auditPage - 查询开票批次审批ID
+        with allure.step('查询应收开票批次审批ID（auditPage）'):
+            query_resp = AuditApi.query_invoice_batch_audit(
+                relation_id=batch_id,
+                audit_status=["1"],
+                page_no=1,
+                page_size=1,
+                active_tab="examine_wait",
+            )
+            query_data = query_resp.json()
+            result['audit_query_resp'] = query_resp
+            result['audit_query_data'] = query_data
+
+            records = query_data.get("data", {}).get("data", []) or []
+            first = records[0] if records else {}
+            audit_id = first.get("audit_id", "")
+            result['audit_id'] = audit_id
+            result['steps'].append({
+                'name': '查询应收开票批次审批ID',
+                'code': query_data.get('code'),
+                'msg': query_data.get('msg'),
+                'audit_id': audit_id,
+                'audit_count': len(records),
+            })
+
+            if not audit_id:
+                cls._attach_context(result)
+                raise AssertionError(f'未查到开票批次审批记录，batch_id={batch_id}，响应: {query_data}')
+
+        # Step 2: auditExecute - 审批通过
+        with allure.step('审批通过应收开票批次（auditExecute）'):
+            execute_resp = AuditApi.audit_execute(
+                audit_ids=[audit_id],
+                audit_status=2,
+            )
+            execute_data = execute_resp.json()
+            result['audit_execute_resp'] = execute_resp
+            result['audit_execute_data'] = execute_data
+            result['steps'].append({
+                'name': '审批通过应收开票批次',
+                'code': execute_data.get('code'),
+                'msg': execute_data.get('msg'),
+                'audit_id': audit_id,
+            })
+
         cls._attach_context(result)
         return result
 
@@ -1265,6 +1344,7 @@ class OrderWorkflow:
                 - 'receive_account'   新建 + ... + 生成费用通知单 + 生成费用确认单 + 发起应收对账批次
                 - 'confirm_account'  新建 + ... + 发起应收对账批次 + 确认应收对账
                 - 'invoice_batch'    新建 + ... + 确认应收对账 + 发起应收开票批次审批
+                - 'invoice_batch_audit' 新建 + ... + 发起应收开票批次审批 + 审核生成开票申请
             skip_stash: 是否跳过暂存
             fee_configs: 录费用配置列表（stop_at='record_fee' 时使用）
 
@@ -1396,7 +1476,7 @@ class OrderWorkflow:
             })
 
         # Step 8: 生成子订单
-        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step(f'[{stop_at}] Step7: 生成子订单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1413,10 +1493,10 @@ class OrderWorkflow:
                 })
 
         # Step 9: 录费用（含资产推送审计）
-        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step(f'[{stop_at}] Step8: 录费用'):
                 order_id = after_submit_order.get('order_id')
-                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch')
+                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit')
                 fee_result = cls.record_fee(
                     order_id=order_id,
                     fee_configs=fee_configs or [],
@@ -1428,7 +1508,7 @@ class OrderWorkflow:
         # assetPush 已在 record_fee 内部完成（audit_after_fee=True）
 
         # Step 10: 订单锁定审批
-        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step(f'[{stop_at}] Step10: 订单锁定审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1439,7 +1519,7 @@ class OrderWorkflow:
                 result['steps'].extend(lock_result['steps'])
 
         # Step 11: 未放款开票申请审批
-        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[invoice_apply] Step11: 未放款开票申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1450,7 +1530,7 @@ class OrderWorkflow:
                 result['steps'].extend(invoice_result['steps'])
 
         # Step 12: 供应商垫付申请审批
-        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[supplier_advance] Step12: 供应商垫付申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1461,7 +1541,7 @@ class OrderWorkflow:
                 result['steps'].extend(advance_result['steps'])
 
         # Step 13: 生成费用通知单
-        if stop_at in ('fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[fee_notice] Step13: 生成费用通知单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1472,7 +1552,7 @@ class OrderWorkflow:
                 result['steps'].extend(notice_result['steps'])
 
         # Step 14: 生成费用确认单
-        if stop_at in ('fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[fee_confirm] Step14: 生成费用确认单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -1483,7 +1563,7 @@ class OrderWorkflow:
                 result['steps'].extend(confirm_result['steps'])
 
         # Step 15: 发起应收对账批次
-        if stop_at in ('receive_account', 'confirm_account', 'invoice_batch'):
+        if stop_at in ('receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[receive_account] Step15: 发起应收对账批次'):
                 # 从 fee_confirm_result 中提取结算对象信息
                 confirm_result = result.get('fee_confirm_result')
@@ -1523,7 +1603,7 @@ class OrderWorkflow:
                 result['steps'].extend(receive_result['steps'])
 
         # Step 16: 确认应收对账
-        if stop_at in ('confirm_account', 'invoice_batch'):
+        if stop_at in ('confirm_account', 'invoice_batch', 'invoice_batch_audit'):
             with allure.step('[confirm_account] Step16: 确认应收对账'):
                 receive_result = result.get('receive_account_result')
                 if not receive_result:
@@ -1543,7 +1623,7 @@ class OrderWorkflow:
                 result['steps'].extend(confirm_result['steps'])
 
         # Step 17: 发起应收开票批次审批
-        if stop_at == 'invoice_batch':
+        if stop_at in ('invoice_batch', 'invoice_batch_audit'):
             with allure.step('[invoice_batch] Step17: 发起应收开票批次审批'):
                 confirm_result = result.get('confirm_account_result')
                 if not confirm_result:
@@ -1592,6 +1672,23 @@ class OrderWorkflow:
                 )
                 result['invoice_batch_result'] = invoice_result
                 result['steps'].extend(invoice_result['steps'])
+
+        # Step 18: 审核生成开票申请
+        if stop_at == 'invoice_batch_audit':
+            with allure.step('[invoice_batch_audit] Step18: 审核生成开票申请'):
+                invoice_batch_result = result.get('invoice_batch_result')
+                if not invoice_batch_result:
+                    cls._attach_context(result)
+                    raise AssertionError('invoice_batch_result 不存在，无法审核生成开票申请')
+
+                batch_id = invoice_batch_result.get('batch_id')
+                if not batch_id:
+                    cls._attach_context(result)
+                    raise AssertionError('batch_id 不存在，无法审核生成开票申请')
+
+                audit_result = cls.record_invoice_batch_audit(batch_id=batch_id)
+                result['invoice_batch_audit_result'] = audit_result
+                result['steps'].extend(audit_result['steps'])
 
         cls._attach_context(result)
         return result

@@ -17,6 +17,7 @@
   link13 - 新建...发起应收对账批次
   link14 - 新建...发起应收对账批次、确认应收对账
   link15 - 新建...确认应收对账、发起应收开票批次审批
+  link16 - 新建...发起应收开票批次审批、审核生成开票申请
 """
 import allure
 import pytest
@@ -1679,5 +1680,249 @@ class TestLink15InvoiceBatch:
                 '获取开票方信息',
                 '提交应收开票批次申请',
                 '验证应收开票批次',
+            ]:
+                assert name in step_names, f'steps 缺少: {name}'
+
+
+# =============================================================================
+# 链路16：新建...发起应收开票批次审批 → 审核生成开票申请
+# =============================================================================
+@pytest.mark.link16
+class TestLink16InvoiceBatchAudit:
+    """链路16：新建 → ... → 发起应收开票批次审批 → 审核生成开票申请"""
+
+    @allure.feature("链路测试")
+    @allure.story("链路16：审核生成开票申请")
+    @allure.severity("critical")
+    @allure.title("链路16：发起应收开票批次审批 → 审核生成开票申请")
+    def test_link16_invoice_batch_audit(self):
+        """验证：完整链路（LINK15 + 审核生成开票申请），链路停在 invoice_batch_audit 阶段"""
+        import time as _time
+        bl_no = 'LK16_' + _time.strftime('%Y%m%d%H%M%S')
+
+        customer_fees = BookRealAmountData.get_customer_standard_fees()
+        supplier_fees = BookRealAmountData.get_supplier_standard_fees()
+
+        fee_config = {
+            'to_customer_fees': customer_fees,
+            'to_supplier_fees': supplier_fees,
+        }
+
+        with allure.step('执行链路（新建→...→发起应收开票批次审批→审核生成开票申请）'):
+            result = OrderWorkflow.full_flow(
+                stop_at='invoice_batch_audit',
+                bl_no=bl_no,
+                fee_configs=[fee_config],
+            )
+
+        # ---------- LINK13 步骤断言 ----------
+
+        with allure.step('断言：新建成功'):
+            assert result['create_data']['code'] == 200, f'新建失败: {result["create_data"]}'
+
+        with allure.step('断言：分发成功'):
+            assert result['distribute_data']['code'] == 200, f'分发失败: {result["distribute_data"]}'
+
+        with allure.step('断言：生成子订单成功'):
+            gen_data = result['generate_sub_data']
+            assert gen_data['code'] == 200, f'生成子订单失败: {gen_data}'
+
+        with allure.step('断言：录费用成功'):
+            assert len(result['record_fee_results']) == 1
+            fee_1 = result['record_fee_results'][0]
+            assert fee_1['resp'].status_code == 200
+            assert fee_1['data']['code'] == 200
+
+        with allure.step('断言：资产推送审批成功'):
+            assert fee_1.get('audit_send_resp') is not None
+            assert fee_1['audit_send_resp'].status_code == 200
+            assert fee_1['audit_send_data']['code'] == 200
+            assert fee_1.get('audit_id')
+            assert fee_1['audit_approve_resp'].status_code == 200
+            assert fee_1['audit_approve_data']['code'] == 200
+
+        with allure.step('断言：订单锁定审批成功'):
+            lock_result = result['order_lock_result']
+            assert lock_result is not None
+            assert lock_result['container']
+            assert lock_result['send_resp'].status_code == 200
+            assert lock_result['send_data']['code'] == 200
+            assert lock_result.get('audit_id')
+            assert lock_result['approve_resp'].status_code == 200
+            assert lock_result['approve_data']['code'] == 200
+
+        with allure.step('断言：未放款开票申请审批成功'):
+            invoice_result = result['invoice_apply_result']
+            assert invoice_result is not None
+            assert invoice_result['send_resp'].status_code == 200
+            assert invoice_result['send_data']['code'] == 200
+            assert invoice_result.get('audit_id')
+            assert invoice_result['approve_resp'].status_code == 200
+            assert invoice_result['approve_data']['code'] == 200
+
+        with allure.step('断言：供应商垫付申请审批成功'):
+            advance_result = result['supplier_advance_result']
+            assert advance_result is not None
+            assert advance_result['send_resp'].status_code == 200
+            assert advance_result['send_data']['code'] == 200
+            assert advance_result.get('audit_id')
+            assert advance_result['approve_resp'].status_code == 200
+            assert advance_result['approve_data']['code'] == 200
+
+        with allure.step('断言：生成费用通知单成功'):
+            notice_result = result['fee_notice_result']
+            assert notice_result is not None
+            assert notice_result['resp'].status_code == 200
+            assert notice_result['data']['code'] == 200
+
+        with allure.step('断言：生成费用确认单成功'):
+            fee_confirm_result = result['fee_confirm_result']
+            assert fee_confirm_result is not None
+            assert fee_confirm_result['resp'].status_code == 200
+            assert fee_confirm_result['data']['code'] == 200
+
+        with allure.step('断言：发起应收对账批次成功'):
+            receive_result = result['receive_account_result']
+            assert receive_result is not None
+            assert receive_result['put_list_resp'].status_code == 200
+            assert receive_result['put_list_data'].get('code') == 200
+            assert receive_result['check_resp'].status_code == 200
+            assert receive_result['check_data'].get('code') == 200
+            assert receive_result['submit_resp'].status_code == 200
+            assert receive_result['submit_data'].get('code') == 200
+            assert receive_result['submit_data'].get('msg') == '成功'
+            assert receive_result['receive_account_id']
+            assert receive_result['receive_account_no'].startswith('YSDZPC')
+
+        # ---------- LINK14 确认应收对账断言 ----------
+
+        with allure.step('断言：确认应收对账结果存在'):
+            confirm_result = result['confirm_account_result']
+            assert confirm_result is not None, '确认应收对账结果不应为空'
+
+        with allure.step('断言：receiveAccountDetail 查询成功'):
+            detail_resp = confirm_result['detail_resp']
+            assert detail_resp.status_code == 200, f'HTTP 状态码异常: {detail_resp.status_code}'
+            detail_data = confirm_result['detail_data']
+            assert detail_data.get('code') == 200, f'receiveAccountDetail code 不为 200: {detail_data}'
+            assert detail_data.get('msg') == '成功', f'receiveAccountDetail msg 不为"成功": {detail_data.get("msg")}'
+
+        with allure.step('断言：receiveConfirmList 查询成功'):
+            confirm_list_resp = confirm_result['confirm_list_resp']
+            assert confirm_list_resp.status_code == 200, f'HTTP 状态码异常: {confirm_list_resp.status_code}'
+            confirm_list_data = confirm_result['confirm_list_data']
+            assert confirm_list_data.get('code') == 200, f'receiveConfirmList code 不为 200: {confirm_list_data}'
+            assert confirm_list_data.get('msg') == '成功', f'receiveConfirmList msg 不为"成功": {confirm_list_data.get("msg")}'
+
+        with allure.step('断言：confirm_list 非空'):
+            confirm_list = confirm_result['confirm_list']
+            assert confirm_list is not None
+            assert isinstance(confirm_list, list)
+            assert len(confirm_list) > 0, 'confirm_list 不应为空'
+
+        with allure.step('断言：accountConfirm 确认成功'):
+            submit_resp = confirm_result['submit_resp']
+            assert submit_resp.status_code == 200, f'HTTP 状态码异常: {submit_resp.status_code}'
+            submit_data = confirm_result['submit_data']
+            assert submit_data.get('code') == 200, f'accountConfirm code 不为 200: {submit_data}'
+            assert submit_data.get('msg') == '成功', f'accountConfirm msg 不为"成功": {submit_data.get("msg")}'
+
+        with allure.step('断言：receiveAccountPage 查询成功'):
+            page_resp = confirm_result['page_resp']
+            assert page_resp.status_code == 200, f'HTTP 状态码异常: {page_resp.status_code}'
+            page_data = confirm_result['page_data']
+            assert page_data.get('code') == 200, f'receiveAccountPage code 不为 200: {page_data}'
+            assert page_data.get('msg') == '成功', f'receiveAccountPage msg 不为"成功": {page_data.get("msg")}'
+
+        # ---------- LINK15 发起应收开票批次审批断言 ----------
+
+        with allure.step('断言：发起应收开票批次审批结果存在'):
+            invoice_batch_result = result['invoice_batch_result']
+            assert invoice_batch_result is not None, 'invoice_batch_result 不应为空'
+
+        with allure.step('断言：financePutList 查询成功'):
+            put_list_data = invoice_batch_result['put_list_data']
+            assert invoice_batch_result['put_list_resp'].status_code == 200
+            assert put_list_data.get('code') == 200, f'查询应收款项列表失败: {put_list_data}'
+
+        with allure.step('断言：monthExchangeRate 获取汇率成功'):
+            rate_data = invoice_batch_result['rate_data']
+            assert invoice_batch_result['rate_resp'].status_code == 200
+            assert rate_data.get('code') == 200, f'获取汇率失败: {rate_data}'
+            assert invoice_batch_result.get('exchange_rate'), '汇率为空'
+
+        with allure.step('断言：getSellInfo 获取开票方信息成功'):
+            sell_info_data = invoice_batch_result['sell_info_data']
+            assert invoice_batch_result['sell_info_resp'].status_code == 200
+            assert sell_info_data.get('code') == 200, f'获取开票方信息失败: {sell_info_data}'
+
+        with allure.step('断言：batchOrderEdit 提交应收开票批次申请成功'):
+            invoice_submit_data = invoice_batch_result['invoice_submit_data']
+            assert invoice_batch_result['invoice_submit_resp'].status_code == 200
+            assert invoice_submit_data.get('code') == 200, f'提交应收开票批次申请失败: {invoice_submit_data}'
+            assert invoice_submit_data.get('msg') == '成功', f'提交应收开票批次申请 msg 不为"成功": {invoice_submit_data.get("msg")}'
+
+        with allure.step('断言：batchPage 查询批次成功'):
+            page_data = invoice_batch_result['page_data']
+            assert invoice_batch_result['page_resp'].status_code == 200
+            assert page_data.get('code') == 200, f'验证批次查询失败: {page_data}'
+            assert page_data.get('msg') == '成功', f'批次查询 msg 不为"成功": {page_data.get("msg")}'
+
+        with allure.step('断言：batch_id 非空'):
+            batch_id = invoice_batch_result['batch_id']
+            assert batch_id, f'batch_id 不应为空: {invoice_batch_result}'
+
+        # ---------- LINK16 审核生成开票申请断言 ----------
+
+        with allure.step('断言：审核生成开票申请结果存在'):
+            audit_result = result['invoice_batch_audit_result']
+            assert audit_result is not None, 'invoice_batch_audit_result 不应为空'
+
+        with allure.step('断言：auditPage 查询审批ID成功'):
+            audit_query_data = audit_result['audit_query_data']
+            assert audit_result['audit_query_resp'].status_code == 200
+            assert audit_query_data.get('code') == 200, f'auditPage 查询失败: {audit_query_data}'
+            assert audit_result.get('audit_id'), f'audit_id 不应为空: {audit_result}'
+
+        with allure.step('断言：auditExecute 审批通过成功'):
+            audit_execute_data = audit_result['audit_execute_data']
+            assert audit_result['audit_execute_resp'].status_code == 200
+            assert audit_execute_data.get('code') == 200, f'auditExecute 审批失败: {audit_execute_data}'
+            assert '成功' in audit_execute_data.get('msg', ''), f'auditExecute msg 不含"成功": {audit_execute_data.get("msg")}'
+
+        # ---------- 链路停止阶段 ----------
+
+        with allure.step('断言：链路停在 invoice_batch_audit 阶段'):
+            assert result['stop_at'] == 'invoice_batch_audit'
+
+        # ---------- steps 记录完整 ----------
+
+        with allure.step('断言：steps 记录完整'):
+            step_names = [s['name'] for s in result['steps']]
+            for name in [
+                '新建订单', '按提单号查询', '分发订单', '查询订单',
+                '暂存订单', '查询订单（暂存后）', '提交订单', '查询订单（提交后）',
+                '生成子订单',
+                '录费用(1)', '发起审批(1)', '查询审批ID(1)', '审批通过(1)',
+                '获取箱型信息',
+                '发起订单锁定审批', '查询订单锁定审批ID', '订单锁定审批通过',
+                '发起未放款开票申请审批', '查询未放款开票申请审批ID', '未放款开票申请审批通过',
+                '发起供应商垫付申请审批', '查询供应商垫付申请审批ID', '供应商垫付申请审批通过',
+                '生成费用通知单',
+                '生成费用确认单',
+                '查询应收款项列表',
+                '应收对账预校验',
+                '发起应收对账批次',
+                '查询应收对账批次详情',
+                '查询应收确认列表',
+                '确认应收对账',
+                '确认后查询批次列表',
+                '查询应收款项列表（开票）',
+                '获取汇率',
+                '获取开票方信息',
+                '提交应收开票批次申请',
+                '验证应收开票批次',
+                '查询应收开票批次审批ID',
+                '审批通过应收开票批次',
             ]:
                 assert name in step_names, f'steps 缺少: {name}'
