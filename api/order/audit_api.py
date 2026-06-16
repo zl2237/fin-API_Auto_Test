@@ -4,7 +4,7 @@ API 层 - 审批流相关接口封装
 from typing import Any, Dict, List
 
 from core.http_client import http
-from data.audit_data import AuditFlowData
+from data.order import AuditFlowData
 
 
 class AuditApi:
@@ -76,7 +76,7 @@ class AuditApi:
         Returns:
             Response 对象
         """
-        from data.audit_data import AuditFlowData
+        from data.order import AuditFlowData
         payload = AuditFlowData._actual_cost_lock_payload(
             order_id=order_id,
             container=container,
@@ -89,14 +89,14 @@ class AuditApi:
     @classmethod
     def send_add_loan_before_invoice(cls, order_id: str) -> Any:
         """发起未放款开票申请审批"""
-        from data.audit_data import AuditFlowData
+        from data.order import AuditFlowData
         payload = AuditFlowData._add_loan_before_invoice_payload(order_id)
         return http.post(cls._SEND_URLS["addLoanBeforeInvoiceApply"], json=payload)
 
     @classmethod
     def send_add_special_payment_flag(cls, order_id: str) -> Any:
         """发起供应商垫付申请审批"""
-        from data.audit_data import AuditFlowData
+        from data.order import AuditFlowData
         payload = AuditFlowData._add_special_payment_flag_payload(order_id)
         return http.post(cls._SEND_URLS["addSpecialPaymentFlag"], json=payload)
 

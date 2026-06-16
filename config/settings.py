@@ -24,12 +24,12 @@ else:
 PATH_CONFIG = {
     "log_dir": BASE_DIR / "report" / "logs",
     "allure_result_dir": BASE_DIR / "report" / "allure-results",
-    "test_data_dir": BASE_DIR / "data" / "test_data",
+    "attachment_dir": BASE_DIR / "data" / "attachment",
 }
 
 LOG_DIR = str(PATH_CONFIG["log_dir"])
 ALLURE_RESULT_DIR = str(PATH_CONFIG["allure_result_dir"])
-TEST_DATA_DIR = str(PATH_CONFIG["test_data_dir"])
+TEST_DATA_DIR = str(PATH_CONFIG["attachment_dir"])
 LOG_RETENTION = 7
 
 

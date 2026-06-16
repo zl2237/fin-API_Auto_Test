@@ -6,8 +6,8 @@ from typing import Any, Dict
 
 import allure
 
-from api.receive_writeoff_api import ReceiveWriteoffApi
-from data.order_data import ReceiveWriteoffData
+from api.receive.receive_writeoff_api import ReceiveWriteoffApi
+from data.receive import ReceiveWriteoffData
 
 
 def record_receive_writeoff(
@@ -45,7 +45,7 @@ def record_receive_writeoff(
             'steps': [...],
         }
     """
-    from data.order_data import (
+    from data.receive import (
         RECEIVE_WRITEOFF_MAIN_ID,
         RECEIVE_WRITEOFF_MAIN_NAME,
     )

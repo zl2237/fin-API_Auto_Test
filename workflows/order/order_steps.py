@@ -7,7 +7,7 @@ from typing import Any, Dict
 import allure
 
 from api.order import OrderApi
-from data.order_data import generate_bl_no
+from data.order import generate_bl_no
 
 
 def create_and_distribute(bl_no: str = None) -> Dict[str, Any]:

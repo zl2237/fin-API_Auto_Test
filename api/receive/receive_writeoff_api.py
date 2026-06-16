@@ -11,7 +11,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from core.http_client import http
-from data.order_data import ReceiveWriteoffData
+from data.receive import ReceiveWriteoffData
 
 
 class ReceiveWriteoffApi:

@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,14 @@ import pytest
 from utils.logger import log
 from core.http_client import http
 from config.settings import LOGIN_URL, USERNAME, PASSWORD, TOKEN_FIELD, TOKEN_TYPE, AUTH_HEADER
+
+
+def pytest_configure(config):
+    """测试运行前清空 allure-results 目录，避免旧数据残留。"""
+    allure_dir = Path("report/allure-results")
+    if allure_dir.exists():
+        shutil.rmtree(allure_dir)
+        allure_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_nested_value(data, key: str):

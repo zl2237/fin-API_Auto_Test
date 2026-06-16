@@ -13,7 +13,7 @@ import uuid
 from typing import Any, Dict, List
 
 from core.http_client import http
-from data.order_data import _RECEIVE_INVOICE_UPLOAD_CFG
+from data.receive import _RECEIVE_INVOICE_UPLOAD_CFG
 
 
 def _const(key: str, default=None):

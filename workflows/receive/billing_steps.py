@@ -7,8 +7,8 @@ from typing import Any, Dict
 
 import allure
 
-from api.finance_api import FinanceApi
-from data.order_data import (
+from api.receive.billing_api import FinanceApi
+from data.receive import (
     ACTION_CHECK,
     ACTION_SUBMIT,
     CONFIRM_TYPE_PENDING,
@@ -49,7 +49,7 @@ def record_receive_account(
             'steps': [...],
         }
     """
-    from data.order_data import RECEIVE_ACCOUNT_MAIN_NAME
+    from data.receive import RECEIVE_ACCOUNT_MAIN_NAME
 
     result = {
         'bl_no': bl_no,

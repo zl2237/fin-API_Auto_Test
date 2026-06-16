@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 import allure
 
-from api.audit_api import AuditApi
+from api.order import AuditApi
 
 
 def record_invoice_batch(
@@ -48,8 +48,8 @@ def record_invoice_batch(
             'steps': [...],
         }
     """
-    from api.invoice_batch_api import InvoiceBatchApi
-    from data.order_data import (
+    from api.receive.invoice_batch_api import InvoiceBatchApi
+    from data.receive import (
         INVOICE_USD_TURN_ON,
         INVOICE_MERGE_CNY_NO,
         INVOICE_RATE_TYPE_SPECIFY,
@@ -385,8 +385,8 @@ def record_invoice_upload(
             'steps': [...],
         }
     """
-    from api.invoice_upload_api import InvoiceUploadApi
-    from data.order_data import _RECEIVE_INVOICE_UPLOAD_CFG
+    from api.receive.invoice_upload_api import InvoiceUploadApi
+    from data.receive import _RECEIVE_INVOICE_UPLOAD_CFG
 
     result: Dict[str, Any] = {"bl_no": bl_no, "steps": []}
 
@@ -530,7 +530,7 @@ def record_invoice_upload(
 
     # Step 3.5: 等待服务端把 receive_invoice_id 关联到 fee 行（invoice_status 1）
     # 后端异步处理需要几秒时间，writeoffBatch 依赖 fee.invoice_status = "1"
-    from api.receive_writeoff_api import ReceiveWriteoffApi as _RWA
+    from api.receive.receive_writeoff_api import ReceiveWriteoffApi as _RWA
     for _attempt in range(1, 6):
         _time.sleep(2)
         _fee_resp = _RWA.query_order_fee_real_id_list(bl_no=bl_no)

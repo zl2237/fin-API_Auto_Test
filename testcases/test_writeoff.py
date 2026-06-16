@@ -8,7 +8,7 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order_data import BookRealAmountData
+from data.order import BookRealAmountData
 
 
 # =============================================================================

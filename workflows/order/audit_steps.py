@@ -9,8 +9,7 @@ from typing import Any, Dict, List
 
 import allure
 
-from api.audit_api import AuditApi
-from api.order import OrderApi
+from api.order import AuditApi, OrderApi
 
 
 def record_audit(
@@ -130,7 +129,7 @@ def record_order_lock(
     with allure.step('获取箱型信息（用于订单锁定审批）'):
         container = OrderApi.get_container_from_order(bl_no=bl_no)
         if not container:
-            from data.order_data import SubmitRequiredFields
+            from data.order import SubmitRequiredFields
             container = SubmitRequiredFields.DEFAULT_CONTAINER.copy()
         result['container'] = container
         result['steps'].append({

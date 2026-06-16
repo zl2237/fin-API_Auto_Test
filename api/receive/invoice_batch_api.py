@@ -15,10 +15,11 @@ import time
 from typing import Dict, Any, List, Optional
 
 from core.http_client import http
-from data.order_data import (
+from data.receive import (
     OPERATE_TYPE_RECEIVABLE,
     ACCOUNT_TYPE_CROSS_CUSTOMER,
     PAGE_NO_DEFAULT,
+    PAGE_SIZE_STANDARD,
     PAGE_SIZE_LARGE,
     YEAR_OFFSET_SECONDS,
     DAY_OFFSET_SECONDS,
@@ -92,7 +93,7 @@ class InvoiceBatchApi:
         if page_no is None:
             page_no = PAGE_NO_DEFAULT
         if page_size is None:
-            from data.order_data import PAGE_SIZE_STANDARD
+            from data.receive import PAGE_SIZE_STANDARD
             page_size = PAGE_SIZE_STANDARD
 
         payload = {

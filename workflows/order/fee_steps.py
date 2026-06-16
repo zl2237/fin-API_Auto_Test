@@ -8,10 +8,9 @@ from typing import Any, Dict, List
 
 import allure
 
-from api.audit_api import AuditApi
-from api.order import OrderApi
+from api.order import AuditApi, OrderApi
 from core.http_client import http
-from data.order_data import BookRealAmountData
+from data.order import BookRealAmountData
 
 
 def record_fee(

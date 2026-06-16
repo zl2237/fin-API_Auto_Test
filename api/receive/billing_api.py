@@ -1,5 +1,5 @@
 """
-API 层 - 财务系统应收对账相关接口封装
+API 层 - 应收对账相关接口封装（原 api/finance_api.py 内容，整体迁移）
 
 涉及两套流程：
   发起应收对账批次（LINK13）：
@@ -19,7 +19,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from core.http_client import http
-from data.order_data import (
+from data.receive import (
     OPERATE_TYPE_RECEIVABLE,
     ACCOUNT_TYPE_CROSS_CUSTOMER,
     CONFIRM_TYPE_PENDING,
