@@ -18,7 +18,7 @@ lint:
   tags:
     - api
 
-# ② 冒烟测试（跑 link13 应收对账，覆盖 link1~link12）
+# ② 冒烟测试
 smoke_test:
   stage: smoke_test
   rules:
