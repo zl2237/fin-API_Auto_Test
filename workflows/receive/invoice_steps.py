@@ -57,6 +57,11 @@ def record_invoice_batch(
         INVOICE_DEFAULT_FORM,
         INVOICE_DEFAULT_TYPE,
         INVOICE_DEFAULT_ITEM,
+        INVOICE_FAST_REMARK,
+        INVOICE_APPLY_SIMPLE,
+        INVOICE_PURCHASER_TAX_NUMBER,
+        INVOICE_REQUIRE_OTHER,
+        INVOICE_DEFAULT_REMARK,
     )
 
     result: Dict[str, Any] = {"bl_no": bl_no, "steps": []}
@@ -149,7 +154,7 @@ def record_invoice_batch(
     usd_purchaser = seller_list[1] if len(seller_list) > 1 else seller_list[0] if seller_list else {}
 
     usd_require = {
-        "fast_remark": "[]",
+        "fast_remark": INVOICE_FAST_REMARK,
         "currency": "CNY",
         "amount_total_usd": float(fee_usd_total) if fee_usd_total else 0,
         "amount_total_cny": "",
@@ -158,7 +163,7 @@ def record_invoice_batch(
         "turn_amount_total_usd": "",
         "turn_amount_total": f"{float(fee_usd_total) * float(exchange_rate):.2f}" if fee_usd_total and exchange_rate else "0.00",
         "invoice_apply_name": f"{main_name} + {put_settle_object} + 2026-05 + USD {fee_usd_total}",
-        "invoice_apply_simple": "",
+        "invoice_apply_simple": INVOICE_APPLY_SIMPLE,
         "invoice_form": INVOICE_DEFAULT_FORM,
         "invoice_type": INVOICE_DEFAULT_TYPE,
         "purchaser_id": str(put_settle_object_id),
@@ -171,8 +176,8 @@ def record_invoice_batch(
         "invoice_items": "",
         "invoice_rate_type": "",
         "invoice_rate": "",
-        "require_other": "暂无要求",
-        "remark": "—",
+        "require_other": INVOICE_REQUIRE_OTHER,
+        "remark": INVOICE_DEFAULT_REMARK,
         "rate_list": [
             {
                 "cost_name": item.get('fee_real_name', ''),
@@ -192,7 +197,7 @@ def record_invoice_batch(
         "fund_name": usd_seller.get('fund_name', ''),
     }
     cny_require = {
-        "fast_remark": "[]",
+        "fast_remark": INVOICE_FAST_REMARK,
         "currency": "",
         "amount_total_usd": "",
         "amount_total_cny": "",
@@ -201,7 +206,7 @@ def record_invoice_batch(
         "turn_amount_total_usd": "",
         "turn_amount_total": "",
         "invoice_apply_name": "",
-        "invoice_apply_simple": "",
+        "invoice_apply_simple": INVOICE_APPLY_SIMPLE,
         "invoice_form": "",
         "invoice_type": "",
         "purchaser_id": "",
@@ -215,7 +220,7 @@ def record_invoice_batch(
         "invoice_rate_type": "",
         "invoice_rate": "",
         "require_other": "",
-        "remark": "—",
+        "remark": INVOICE_DEFAULT_REMARK,
         "rate_list": [],
     }
 

@@ -62,6 +62,10 @@ INVOICE_UPLOAD_PAGE_SIZE = _RU_CONST.get("page_size", 20)
 INVOICE_UPLOAD_SORT_FIELD = _RU_CONST.get("sort_field", "create_time")
 INVOICE_UPLOAD_SORT_ORDER = _RU_CONST.get("sort_order_desc", "desc")
 INVOICE_UPLOAD_ACTION_SUBMIT = _RU_CONST.get("action_submit", "submit")
+INVOICE_UPLOAD_INVOICE_FILENAME = (
+    _RECEIVE_INVOICE_UPLOAD_CFG.get("invoice_file", {}).get("filename", "receive_invoice.pdf")
+    if _RECEIVE_INVOICE_UPLOAD_CFG else "receive_invoice.pdf"
+)
 INVOICE_UPLOAD_IDENTITY_CUSTOMER = _RU_CONST.get("identity_customer", "customer")
 INVOICE_UPLOAD_IDENTITY_MAIN = _RU_CONST.get("identity_main", "main")
 
@@ -110,6 +114,15 @@ INVOICE_DEFAULT_RATE = _RI_CONST.get("default_exchange_rate", 7)
 INVOICE_DEFAULT_FORM = _RI_CONST.get("default_invoice_form", "1")
 INVOICE_DEFAULT_TYPE = _RI_CONST.get("default_invoice_type", "1")
 INVOICE_DEFAULT_ITEM = _RI_CONST.get("default_invoice_item", "2")
+
+# -- batch_order_edit 内联对象（usd_require / cny_require）--
+# 从 receive_invoice.yaml 的 batch_order_edit 块读取（不在 _constants 下，避免与主字段混淆）
+_boe_cfg = _RECEIVE_INVOICE_CFG.get("batch_order_edit", {}) if _RECEIVE_INVOICE_CFG else {}
+INVOICE_FAST_REMARK = _boe_cfg.get("fast_remark", "[]")
+INVOICE_APPLY_SIMPLE = _boe_cfg.get("invoice_apply_simple", "")
+INVOICE_PURCHASER_TAX_NUMBER = _boe_cfg.get("purchaser_tax_number", "")
+INVOICE_REQUIRE_OTHER = _boe_cfg.get("require_other", "暂无要求")
+INVOICE_DEFAULT_REMARK = _boe_cfg.get("remark", "—")
 
 # -- receive writeoff --
 RECEIVE_WRITEOFF_ACTION_SUBMIT = _RW_CONST.get("action_submit", "submit")

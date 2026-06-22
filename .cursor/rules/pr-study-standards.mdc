@@ -1,5 +1,5 @@
 ---
-description: pr_study 项目 AI 编码规范（拒绝硬编码 + stop_at 条件列表）
+description: pr_study 项目 AI 编码规范（拒绝硬编码 + data 分文件 + README 同步 + stop_at 条件列表 + 不确定就问）
 alwaysApply: true
 ---
 
@@ -141,4 +141,190 @@ def run_until_new_step(cls, bl_no: str = None, fee_configs: List[Dict[str, Any]]
 [ ] pytest.ini 中 marker 已注册
 [ ] 用例 collect 成功
 [ ] 链路运行通过
+```
+
+---
+
+## 规则三：data 层不同阶段/链路必须拆分到独立 YAML 文件
+
+**适用场景**：在 `data/` 域目录下添加新配置（YAML）时，禁止将多个阶段/链路的常量混写在同一文件里。
+
+### 拆分粒度
+
+按**业务阶段**拆分，同一域内不同阶段单独成文件：
+
+```
+data/pay/
+  pay_account.yaml          ← link19/link20（应付对账批次 + 确认应付对账）
+  payable_invoice.yaml      ← link21（发起应付开票申请）
+  payable_invoice_register.yaml  ← link22（如后续接入，仅占位）
+
+data/receive/
+  receive_account.yaml      ← 应收对账 + 确认应收对账
+  receive_invoice.yaml      ← 应收开票批次 + 审核
+  receive_invoice_upload.yaml   ← 发票上传与登记
+  receive_writeoff.yaml     ← 应收核销
+
+data/order/
+  order.yaml                ← 订单基本信息
+  fee.yaml                  ← 录费用
+  fee_notice.yaml           ← 费用通知单
+  fee_confirm.yaml          ← 费用确认单
+```
+
+### 命名规范
+
+- 文件名小写，下划线分隔
+- 与 `workflows/<domain>/<stage>_steps.py` 命名保持一致（如 `record_invoice_batch` 对应 `receive_invoice.yaml`）
+- 同域多个文件用业务阶段名区分，不用 link 号命名（业务阶段是稳定概念，link 号可能重组）
+
+### 拆分原则
+
+1. 同一文件内只允许放**一个阶段/链路**的 `_constants` 与业务参数
+2. 跨文件不复用常量（即使值相同也要各写一份，避免隐式耦合）
+3. 加载器按文件名一对一：`_load_yaml("pay_account")` / `_load_yaml("payable_invoice")`
+4. 同一文件内可有多个数据类（如 `ReceiveAccountData` / `ReceiveInvoiceData` 都在 `receive_invoice_upload.yaml`），但**只限同一阶段**
+
+### 反例（不推荐）
+
+```yaml
+# ❌ payable.yaml（混了 link19 + link20 + link21 三段配置）
+order_pay_account_edit:
+  action_submit: "submit"
+pay_account_page:
+  account_status: ["1"]
+account_confirm:
+  confirm_type: 0
+batch_order_edit_pay:
+  apply_type: "2"
+```
+
+### 正例（推荐）
+
+```yaml
+# ✅ pay_account.yaml
+_constants:
+  operate_type: 1
+order_pay_account_edit:
+  action_submit: "submit"
+pay_account_page:
+  account_status: ["1"]
+account_confirm:
+  confirm_type: 0
+```
+
+```yaml
+# ✅ payable_invoice.yaml
+_constants:
+  operate_type: 1
+finance_pay_list_invoice:
+  search_style: "invoice"
+batch_order_edit_pay:
+  apply_type: "2"
+```
+
+### 回退检查清单（接入现有混写文件时）
+
+```
+[ ] 识别现有文件中混杂的阶段边界
+[ ] 按业务阶段拆分到独立 YAML
+[ ] 同步更新 _load_yaml 调用和常量导出
+[ ] __init__.py 中 _load_yaml 加载列表同步
+[ ] 跑一次相关 link 验证无回归
+```
+
+---
+
+## 规则四：每次修改后必须同步更新 README.md
+
+**适用场景**：任何代码或配置变更完成后。
+
+### 必须更新 README 的场景
+
+| 改动类型 | 更新位置 |
+|---------|---------|
+| 新增/删除/重命名链路（linkN） | "项目简介"、"链路一览"表格、"快捷方法"段落、pytest.ini 描述 |
+| 新增/修改 API 方法 | "API"表格对应域的章节 |
+| 新增/修改 YAML 配置 | "核心能力"YAML 列表 |
+| 新增/修改快捷方法（`run_until_xxx`） | "快捷方法"段落 |
+| 新增/删除 stage 步骤 | 链路表的"覆盖步骤"列 |
+| 修改链路数 | 文档顶部 "20 条"/"21 条"等数字 |
+
+### 操作时机
+
+- **每个 link 提交前**确认 README 反映当前状态
+- 如果本次会话内做了多次修改，**最后一次提交前**做一次 README diff 审查
+- 不可「改完代码忘记改文档」或「改完文档没核对」
+
+### 快速检查清单
+
+```
+[ ] 项目简介链路数与实际一致
+[ ] 链路一览表格新增/修改/删除项同步
+[ ] API 表格新增方法同步
+[ ] 快捷方法列表同步
+[ ] YAML 配置说明同步
+[ ] pytest.ini 描述同步
+```
+
+---
+
+## 规则五：遇到不确定的问题必须主动询问，禁止自行猜测
+
+**适用场景**：任何任务执行过程中，对**字段含义、API 逻辑、系统背景**不确定时。
+
+### 必须询问的场景
+
+1. **字段含义不明**：API 文档中出现未注释的字段（如 `useAction`、`apply_type`、`turn_amount_total_cny`），**不能根据命名推断**，必须问
+2. **API 行为不确定**：错误码、状态流转、异步时序（如 406 + change 重试）不清楚时，必须问
+3. **业务规则不明**：链接顺序、依赖关系、前后置关系不清楚时，必须问
+4. **跨域数据来源不明**：上游字段传什么值、是否可空、单位（USD/CNY）、精度等，必须问
+5. **取舍决策**：多种实现方式各有优劣，需要业务侧定夺时，必须问
+6. **schema 不匹配**：YAML / 文档 / 实际响应三者任一不一致时，必须问
+
+### 禁止的行为
+
+- ❌ 根据字段名英文意思推测（如 `change` 字面意思 vs 业务含义）
+- ❌ 假设某个参数「大概是这样」然后硬编码默认值
+- ❌ 看到「应该、可能、通常」类描述时直接当成事实采用
+- ❌ 引用上次任务的答案推断本次行为
+- ❌ 用代码注释 `// 推测 xxx` 绕过询问
+
+### 正确做法
+
+- ✅ 用 `AskQuestion` 工具列出选项（带推荐项），让用户选
+- ✅ 直接在响应文本中问具体问题（领域、字段、边界）
+- ✅ 提供"已知信息 + 未知点 + 选项"清单，不让用户从零开始回答
+- ✅ 询问时机：尽量在**动手实现前**问，避免做完后大改
+
+### 询问模板
+
+```
+关于 [字段/API/规则]，我有以下疑问需要确认：
+
+1. [问题 1：具体含义/取值范围/边界]
+2. [问题 2：与其他字段的关联关系]
+
+可选方案：
+- 方案 A：xxx（推荐 / 理由）
+- 方案 B：xxx
+```
+
+### 反例
+
+```
+# ❌ 直接实现
+# useAction 看起来是「更新」的意思，如果值是 'change' 就采纳最新 amount_list
+if data['useAction'] == 'change':
+    adopt_latest_amount(data['amount_list'])
+```
+
+### 正例
+
+```
+# ✅ 先问
+问题：响应 data[].useAction 取值范围是？
+- 'prohibit'（不可用）的处理？
+- 'change'（可变更但需重试）的处理？
+- 是否还有其他值（如 'keep'、'add'）？
 ```

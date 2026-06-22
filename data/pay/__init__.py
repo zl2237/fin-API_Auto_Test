@@ -1,9 +1,12 @@
 """Data 层 - 付款（Pay）域子包
 
 包含：
-  - payable.yaml 配置 loader
-  - 应付对账批次模块级常量
-  - PayableAccountData  应付对账（link19）
+  - pay_account.yaml          应付对账配置（LK19 / LK20）
+  - payable_invoice.yaml      应付开票申请配置（LK21）
+  - payable_invoice_upload.yaml 应付发票上传与登记配置（LK22）
+  - PayableAccountData        应付对账（link19 / link20）
+  - PayableInvoiceData        应付开票申请（link21）
+  - PayableInvoiceUploadData  应付发票上传与登记（link22）
 
 API 层对应：api/pay/ 子包
 """
@@ -20,9 +23,36 @@ from .pay_data import (
     PAY_ACCOUNT_PAGE_ACCOUNT_STATUS,
     ACCOUNT_CONFIRM_TYPE,
     ACCOUNT_CONFIRM_QUICK_STATUS,
+    FPL_INVOICE_SEARCH_STYLE,
+    FPL_INVOICE_BATCH_TYPE,
+    GOBI_DEFAULT_EXCHANGE_RATE,
+    GOBI_USD_INVOICE_REMARK,
+    GOBI_STYLE,
+    BOE_PAY_ACTION,
+    BOE_PAY_APPLY_TYPE,
+    BOE_PAY_BATCH_TYPE,
+    BOE_PAY_MERGE_WITH_CNY,
+    BOE_PAY_USD_IS_TURN,
+    BOE_PAY_RATE_TYPE,
+    BOE_PAY_INVOICE_FORM,
+    BOE_PAY_INVOICE_TYPE,
+    BOE_PAY_INVOICE_ITEM,
+    BOE_PAY_INVOICE_ITEM_NAME,
+    BOE_PAY_DEFAULT_INVOICE_RATE,
+    BOE_PAY_DEFAULT_EXCHANGE_RATE,
+    BOE_PAY_APPOINT_RATE,
+    BOE_PAY_SYS_RATE,
+    BOE_PAY_REMARK,
+    BOE_PAY_REQUIRE_OTHER,
+    BOE_PAY_INVOICE_APPLY_NAME_PATTERN,
+    PIUP_INVOICE_FILENAME,
     PayableAccountData,
+    PayableInvoiceData,
+    PayableInvoiceUploadData,
     _CFG,
+    _INV_CFG,
     _CONST,
+    _INV_CONST,
 )
 
 __all__ = [
@@ -37,5 +67,30 @@ __all__ = [
     "PAY_ACCOUNT_PAGE_ACCOUNT_STATUS",
     "ACCOUNT_CONFIRM_TYPE",
     "ACCOUNT_CONFIRM_QUICK_STATUS",
+    "FPL_INVOICE_SEARCH_STYLE",
+    "FPL_INVOICE_BATCH_TYPE",
+    "GOBI_DEFAULT_EXCHANGE_RATE",
+    "GOBI_USD_INVOICE_REMARK",
+    "GOBI_STYLE",
+    "BOE_PAY_ACTION",
+    "BOE_PAY_APPLY_TYPE",
+    "BOE_PAY_BATCH_TYPE",
+    "BOE_PAY_MERGE_WITH_CNY",
+    "BOE_PAY_USD_IS_TURN",
+    "BOE_PAY_RATE_TYPE",
+    "BOE_PAY_INVOICE_FORM",
+    "BOE_PAY_INVOICE_TYPE",
+    "BOE_PAY_INVOICE_ITEM",
+    "BOE_PAY_INVOICE_ITEM_NAME",
+    "BOE_PAY_DEFAULT_INVOICE_RATE",
+    "BOE_PAY_DEFAULT_EXCHANGE_RATE",
+    "BOE_PAY_APPOINT_RATE",
+    "BOE_PAY_SYS_RATE",
+    "BOE_PAY_REMARK",
+    "BOE_PAY_REQUIRE_OTHER",
+    "BOE_PAY_INVOICE_APPLY_NAME_PATTERN",
+    "PIUP_INVOICE_FILENAME",
     "PayableAccountData",
+    "PayableInvoiceData",
+    "PayableInvoiceUploadData",
 ]

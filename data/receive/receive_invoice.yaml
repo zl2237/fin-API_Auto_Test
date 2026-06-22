@@ -67,3 +67,19 @@ _constants:
   # 排序
   sort_field: "create_time"
   sort_order_desc: "desc"
+
+# --------------------------------------------------------------------------
+# batchOrderEdit（应收开票）内联对象默认值
+# --------------------------------------------------------------------------
+# 适用于 usd_require / cny_require 内联结构
+batch_order_edit:
+  # fast_remark：固定 JSON 空数组
+  fast_remark: "[]"
+  # invoice_apply_simple：开票申请简称（默认空字符串，可按需配置）
+  invoice_apply_simple: ""
+  # purchaser_tax_number：购方税号（默认空）
+  purchaser_tax_number: ""
+  # require_other：特殊要求（默认暂无要求）
+  require_other: "暂无要求"
+  # remark：备注（默认破折号）
+  remark: "—"

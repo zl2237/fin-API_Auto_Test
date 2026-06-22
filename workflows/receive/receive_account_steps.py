@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 import allure
 
-from api.receive.billing_api import FinanceApi
+from api.receive.receive_account_api import FinanceApi
 from data.receive import (
     ACTION_CHECK,
     ACTION_SUBMIT,
