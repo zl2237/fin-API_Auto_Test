@@ -9,7 +9,7 @@ LK19 = LK18 + 发起应付对账批次。
 LK20 = LK19 + 确认应付对账。
 LK21 = LK20 + 发起应付开票批次申请（apply_type=2，submit 即生效，无需审批）。
 """
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import allure
 
