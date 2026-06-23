@@ -1533,3 +1533,309 @@ class PayDemandAuditData:
         }
 
 
+# ========================================================================
+# 付款单核销 - 配置与数据构建（LK25）
+# ========================================================================
+# 链路结构：
+#   step1: formPage            - 查询付款单列表
+#   step2: writeoffPayFormList - 核销付款单列表
+#   step3: orderFeePage        - 查询可核销费用列表
+#   step4: writeoffBatch       - 执行核销
+# ========================================================================
+
+def _load_yaml_writeoff(name: str) -> Dict[str, Any]:
+    """加载核销配置 YAML"""
+    path = Path(__file__).parent / f"{name}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"配置文件不存在: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+_WRITEOFF_CFG = _load_yaml_writeoff("pay_writeoff")
+_WRITEOFF_CONST = _WRITEOFF_CFG.get("_constants", {}) if _WRITEOFF_CFG else {}
+_FORM_PAGE_CFG = _WRITEOFF_CFG.get("form_page", {}) if _WRITEOFF_CFG else {}
+_WRITEOFF_BATCH_CFG = _WRITEOFF_CFG.get("writeoff_batch", {}) if _WRITEOFF_CFG else {}
+
+
+def _get_today_timestamp_range() -> tuple:
+    """
+    获取当天时间戳范围
+
+    Returns:
+        (start, end) - (当天 00:00:00 时间戳字符串, 当天 23:59:59 时间戳字符串)
+    """
+    import time
+    now = time.localtime()
+    # 当天 00:00:00
+    start = int(time.mktime(time.struct_time((now.tm_year, now.tm_mon, now.tm_mday, 0, 0, 0, now.tm_wday, now.tm_yday, 0))))
+    # 当天 23:59:59
+    end = int(time.mktime(time.struct_time((now.tm_year, now.tm_mon, now.tm_mday, 23, 59, 59, now.tm_wday, now.tm_yday, 0))))
+    return str(start), str(end)
+
+
+class PayWriteoffData:
+    """
+    付款单核销（LK25）数据类
+
+    涉及 4 个接口：
+      1. formPage            - 查询付款单列表
+      2. writeoffPayFormList - 核销付款单列表
+      3. orderFeePage        - 查询可核销费用列表
+      4. writeoffBatch       - 执行核销
+    """
+
+    @classmethod
+    def get_form_page_payload(
+        cls,
+        page_no: int = None,
+        page_size: int = None,
+        order_no: str = None,
+        create_time_start: str = None,
+        create_time_end: str = None,
+        status: List[str] = None,
+        sort_field: str = None,
+        sort_order: str = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 formPage 查询请求体
+
+        Args:
+            page_no           : 页码（默认 1）
+            page_size        : 每页数量（默认 20）
+            order_no         : 订单号（默认空字符串）
+            create_time_start: 创建时间开始（默认当天 00:00:00）
+            create_time_end  : 创建时间结束（默认当天 23:59:59）
+            status           : 付款单状态列表（默认 ["2"]=已生效）
+            sort_field       : 排序字段（默认 create_time）
+            sort_order       : 排序方向（默认 desc）
+
+        Returns:
+            请求体字典
+        """
+        if page_no is None:
+            page_no = _WRITEOFF_CONST.get("page_no", 1)
+        if page_size is None:
+            page_size = _WRITEOFF_CONST.get("page_size", 20)
+        if order_no is None:
+            order_no = ""
+        if status is None:
+            status = _FORM_PAGE_CFG.get("status", ["2"])
+        if sort_field is None:
+            sort_field = _FORM_PAGE_CFG.get("sort_field", "create_time")
+        if sort_order is None:
+            sort_order = _FORM_PAGE_CFG.get("sort_order", "desc")
+
+        # 计算当天时间戳范围
+        if create_time_start is None or create_time_end is None:
+            ts_start, ts_end = _get_today_timestamp_range()
+        else:
+            ts_start, ts_end = create_time_start, create_time_end
+
+        return {
+            "page_no": page_no,
+            "page_size": page_size,
+            "order_no": order_no,
+            "create_time": [int(ts_start) * 1000, int(ts_end) * 1000],
+            "status": status,
+            "customer_id": [],
+            "customer_main_id": [],
+            "main_id": [],
+            "pay_settle_object_id": [],
+            "currency": [],
+            "writeoff_status": [],
+            "currency_is_turn": [],
+            "account_create_id": [],
+            "create_id": [],
+            "sort_field": sort_field,
+            "sort_order": sort_order,
+            "params": {},
+            "create_time_start": ts_start,
+            "create_time_end": ts_end,
+        }
+
+    @classmethod
+    def get_writeoff_pay_form_list_payload(
+        cls,
+        pay_form_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        构建 writeoffPayFormList 请求体
+
+        Args:
+            pay_form_ids: 付款单ID列表（**必填**）
+
+        Returns:
+            请求体字典
+        """
+        return {
+            "pay_form_ids": [str(pid) for pid in pay_form_ids],
+        }
+
+    @classmethod
+    def get_order_fee_page_payload(
+        cls,
+        order_fee_real_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        构建 orderFeePage 请求体
+
+        Args:
+            order_fee_real_ids: 费用明细ID列表（**必填**）
+
+        Returns:
+            请求体字典
+        """
+        return {
+            "order_fee_real_ids": [str(fid) for fid in order_fee_real_ids],
+        }
+
+    @classmethod
+    def get_writeoff_batch_payload(
+        cls,
+        remark: str = None,
+        bank_account: str = None,
+        action: str = None,
+        writeoff_object: List[dict] = None,
+        writeoff_name: str = None,
+        fee_match_type: str = None,
+        writeoff_type: str = None,
+        writeoff_mode: str = None,
+        currency: str = None,
+        un_writeoff_amount_usd_total: str = None,
+        un_writeoff_amount_cny_total: str = None,
+        use_writeoff_amount_usd_total: str = None,
+        use_writeoff_amount_cny_total: str = None,
+        statement: List[dict] = None,
+        main_id: str = None,
+        main_name: str = None,
+        statement_amount_cny_total: str = None,
+        statement_amount_usd_total: str = None,
+        select_node_user: List[dict] = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 writeoffBatch 执行核销请求体
+
+        Args:
+            remark                       : 备注（默认空字符串）
+            bank_account               : 银行账号（默认空字符串）
+            action                     : 提交动作（默认 submit）
+            writeoff_object            : 核销对象列表（默认 []）
+            writeoff_name              : 核销名称（默认 固定值）
+            fee_match_type             : 费用匹配类型（默认 "1"）
+            writeoff_type              : 核销类型（默认 "1"）
+            writeoff_mode              : 核销模式（默认空字符串）
+            currency                   : 币种（默认空字符串）
+            un_writeoff_amount_usd_total: 未核销金额 USD 合计（默认 "0.00"）
+            un_writeoff_amount_cny_total: 未核销金额 CNY 合计（默认 "0.00"）
+            use_writeoff_amount_usd_total: 已核销金额 USD 合计（默认 from writeoff_object）
+            use_writeoff_amount_cny_total: 已核销金额 CNY 合计（默认 "0.00"）
+            statement                  : 核销对账明细（默认构造）
+            main_id                   : 主体ID（默认 ""）
+            main_name                  : 主体名称（默认 ""）
+            statement_amount_cny_total : 对账金额 CNY 合计（默认 "0.00"）
+            statement_amount_usd_total : 对账金额 USD 合计（默认 from statement）
+            select_node_user           : 审批节点用户（默认 []）
+
+        Returns:
+            请求体字典
+        """
+        if action is None:
+            action = _WRITEOFF_BATCH_CFG.get("action", "submit")
+        if writeoff_name is None:
+            writeoff_name = _WRITEOFF_BATCH_CFG.get("writeoff_name", "测试核销记录")
+        if fee_match_type is None:
+            fee_match_type = _WRITEOFF_BATCH_CFG.get("fee_match_type", "1")
+        if writeoff_type is None:
+            writeoff_type = _WRITEOFF_BATCH_CFG.get("writeoff_type", "1")
+        if remark is None:
+            remark = ""
+        if bank_account is None:
+            bank_account = ""
+        if writeoff_object is None:
+            writeoff_object = []
+        if writeoff_mode is None:
+            writeoff_mode = ""
+        if currency is None:
+            currency = ""
+        if un_writeoff_amount_usd_total is None:
+            un_writeoff_amount_usd_total = "0.00"
+        if un_writeoff_amount_cny_total is None:
+            un_writeoff_amount_cny_total = "0.00"
+        if use_writeoff_amount_usd_total is None:
+            use_writeoff_amount_usd_total = "0.00"
+        if use_writeoff_amount_cny_total is None:
+            use_writeoff_amount_cny_total = "0.00"
+        if statement_amount_cny_total is None:
+            statement_amount_cny_total = "0.00"
+        if select_node_user is None:
+            select_node_user = []
+        if main_id is None:
+            main_id = ""
+        if main_name is None:
+            main_name = ""
+
+        # 构造 statement
+        if statement is None:
+            exchange_rate = _WRITEOFF_BATCH_CFG.get("exchange_rate", 1)
+            main_bank_id = _WRITEOFF_BATCH_CFG.get("main_bank_id", "45")
+            statement_currency = _WRITEOFF_BATCH_CFG.get("statement_currency", "USD")
+            receipt_time = _get_today_timestamp_range()[0]
+            # 计算 statement_amount_usd_total
+            _total_usd = 0.0
+            for obj in writeoff_object:
+                amt = obj.get('un_writeoff_amount', '0.00')
+                try:
+                    _total_usd += float(amt)
+                except (ValueError, TypeError):
+                    pass
+            statement_amount_usd_total = f"{_total_usd:.2f}"
+            statement = [{
+                "statement_currency": statement_currency,
+                "statement_amount": statement_amount_usd_total,
+                "commission_amount": "",
+                "is_commission": "0",
+                "ischangeRate": False,
+                "writeoff_currency": "",
+                "writeoff_amount_cny": "0.00",
+                "writeoff_amount_usd": statement_amount_usd_total,
+                "exchange_rate": exchange_rate,
+                "receipt_time": int(receipt_time),
+                "receipt_voucher": "",
+                "main_bank_id": main_bank_id,
+                "use_statement_amount_cny_total": None,
+                "use_statement_amount_usd_total": None,
+            }]
+
+        if statement_amount_usd_total is None:
+            # 从 statement 提取
+            _total = 0.0
+            for s in statement:
+                amt = s.get('statement_amount', '0.00')
+                try:
+                    _total += float(amt)
+                except (ValueError, TypeError):
+                    pass
+            statement_amount_usd_total = f"{_total:.2f}"
+
+        return {
+            "remark": remark,
+            "bank_account": bank_account,
+            "action": action,
+            "writeoff_object": writeoff_object,
+            "writeoff_name": writeoff_name,
+            "fee_match_type": fee_match_type,
+            "writeoff_type": writeoff_type,
+            "writeoff_mode": writeoff_mode,
+            "currency": currency,
+            "un_writeoff_amount_usd_total": un_writeoff_amount_usd_total,
+            "un_writeoff_amount_cny_total": un_writeoff_amount_cny_total,
+            "use_writeoff_amount_usd_total": use_writeoff_amount_usd_total,
+            "use_writeoff_amount_cny_total": use_writeoff_amount_cny_total,
+            "statement": statement,
+            "main_id": main_id,
+            "main_name": main_name,
+            "statement_amount_cny_total": statement_amount_cny_total,
+            "statement_amount_usd_total": statement_amount_usd_total,
+            "select_node_user": select_node_user,
+        }

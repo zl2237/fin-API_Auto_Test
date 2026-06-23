@@ -6,11 +6,13 @@
   - payable_invoice_upload.yaml 应付发票上传与登记配置（LK22）
   - pay_demand.yaml           发起付款需求配置（LK23）
   - pay_demand_audit.yaml    审核生成付款单配置（LK24）
+  - pay_writeoff.yaml        付款单核销配置（LK25）
   - PayableAccountData        应付对账（link19 / link20）
   - PayableInvoiceData        应付开票申请（link21）
   - PayableInvoiceUploadData  应付发票上传与登记（link22）
   - PayDemandData             发起付款需求（link23）
   - PayDemandAuditData       审核生成付款单（link24）
+  - PayWriteoffData          付款单核销（link25）
 
 API 层对应：api/pay/ 子包
 """
@@ -55,6 +57,7 @@ from .pay_data import (
     PayableInvoiceUploadData,
     PayDemandData,
     PayDemandAuditData,
+    PayWriteoffData,
     _CFG,
     _INV_CFG,
     _CONST,
@@ -62,6 +65,8 @@ from .pay_data import (
     _UPLOAD_CFG,
     _DEMAND_CFG,
     _DEMAND_CONST,
+    _WRITEOFF_CFG,
+    _WRITEOFF_CONST,
     PAY_DEMAND_OPERATE_TYPE,
     PAY_DEMAND_BATCH_TYPE,
     PAY_DEMAND_SEARCH_STYLE,
@@ -111,6 +116,7 @@ __all__ = [
     "PayableInvoiceUploadData",
     "PayDemandData",
     "PayDemandAuditData",
+    "PayWriteoffData",
     "PAY_DEMAND_OPERATE_TYPE",
     "PAY_DEMAND_BATCH_TYPE",
     "PAY_DEMAND_SEARCH_STYLE",

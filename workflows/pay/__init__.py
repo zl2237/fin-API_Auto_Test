@@ -7,6 +7,7 @@
   - record_payable_invoice_upload  应付发票上传与登记（link22）
   - record_pay_demand             发起付款需求（link23）
   - audit_pay_demand             审核生成付款单（link24）
+  - writeoff_pay_demand          付款单核销（link25）
 
 对应 API 层：api/pay/ 子包
 """
@@ -18,6 +19,7 @@ from .payable_steps import (
 )
 from .pay_demand_steps import record_pay_demand
 from .pay_demand_audit_steps import audit_pay_demand
+from .pay_writeoff_steps import writeoff_pay_demand
 
 __all__ = [
     "record_payable_account",
@@ -26,4 +28,5 @@ __all__ = [
     "record_payable_invoice_upload",
     "record_pay_demand",
     "audit_pay_demand",
+    "writeoff_pay_demand",
 ]

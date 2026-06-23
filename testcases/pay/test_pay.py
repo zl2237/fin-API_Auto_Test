@@ -1,5 +1,5 @@
 """
-链路测试 - 应付对账（link19 / link20 / link21 / link22 / link23 / link24）
+链路测试 - 应付对账（link19 / link20 / link21 / link22 / link23 / link24 / link25）
 
   link19 - 发起应付对账批次（link18 + financePayList + orderPayAccountEdit）
   link20 - 确认应付对账（link19 + payAccountPage + accountConfirm）
@@ -7,6 +7,7 @@
   link22 - 应付发票上传与登记（link21 + uploadFile + invoiceAdd + applyPage + allocationInvoiceFee）
   link23 - 发起付款需求（link22 + financePayList + paymentList + demandEditByOrder）
   link24 - 审核生成付款单（link23 + auditPage + auditExecute）
+  link25 - 付款单核销（link24 + formPage + writeoffPayFormList + orderFeePage + writeoffBatch）
 """
 import allure
 import pytest
@@ -1001,6 +1002,163 @@ class TestLink24PayDemandAudit:
                 # link24 新增步骤
                 '查询待审核列表',
                 '执行审批',
+            ]
+            for name in expected_steps:
+                assert name in step_names, f'steps 缺少: {name}'
+
+
+# =============================================================================
+# 链路25：新建...审核生成付款单 → 付款单核销
+# =============================================================================
+@pytest.mark.link25
+class TestLink25PayWriteoff:
+    """链路25：新建 → ... → 审核生成付款单 → 付款单核销"""
+
+    @allure.feature("链路测试")
+    @allure.story("链路25：付款单核销")
+    @allure.severity("critical")
+    @allure.title("链路25：审核生成付款单 → 付款单核销")
+    def test_link25_pay_writeoff(self):
+        """验证：完整链路（LINK24 + 付款单核销），链路停在 pay_writeoff 阶段"""
+        bl_no = generate_bl_no(25)
+
+        with allure.step('执行链路（新建→...→审核生成付款单→付款单核销）'):
+            result = OrderWorkflow.full_flow(
+                stop_at='pay_writeoff',
+                bl_no=bl_no,
+                fee_configs=[_build_fee_config()],
+            )
+
+        with allure.step('断言：前置链路（link24）全部成功'):
+            _assert_link18_prerequisite_ok(result)
+            _assert_payable_account_ok(result)
+            _assert_confirm_payable_ok(result)
+            _assert_payable_invoice_apply_ok(result)
+
+        with allure.step('断言：应付发票上传与登记结果存在'):
+            upload_result = result.get('payable_invoice_register_result')
+            assert upload_result is not None, '应付发票上传与登记结果不应为空'
+
+        with allure.step('断言：发起付款需求结果存在'):
+            demand_result = result.get('pay_demand_result')
+            assert demand_result is not None, 'pay_demand_result 不应为空'
+
+        with allure.step('断言：审核生成付款单结果存在'):
+            audit_result = result.get('pay_demand_audit_result')
+            assert audit_result is not None, 'pay_demand_audit_result 不应为空'
+
+        with allure.step('断言：付款单核销结果存在'):
+            writeoff_result = result['pay_writeoff_result']
+            assert writeoff_result is not None, 'pay_writeoff_result 不应为空'
+
+        with allure.step('断言：formPage 查询付款单列表成功'):
+            form_page_resp = writeoff_result['form_page_resp']
+            form_page_data = writeoff_result['form_page_data']
+            assert form_page_resp.status_code == 200, (
+                f'formPage HTTP 状态码异常: {form_page_resp.status_code}'
+            )
+            assert form_page_data.get('code') == 200, (
+                f'formPage 查询失败: {form_page_data}'
+            )
+
+        with allure.step('断言：pay_form_records 非空'):
+            pay_form_records = writeoff_result.get('pay_form_records', [])
+            assert pay_form_records, f'pay_form_records 不应为空: {form_page_data}'
+
+        with allure.step('断言：pay_form_id 非空'):
+            pay_form_id = writeoff_result.get('pay_form_id')
+            assert pay_form_id, f'pay_form_id 不应为空: {writeoff_result}'
+
+        with allure.step('断言：writeoffPayFormList 成功'):
+            writeoff_pay_form_list_resp = writeoff_result['writeoff_pay_form_list_resp']
+            writeoff_pay_form_list_data = writeoff_result['writeoff_pay_form_list_data']
+            assert writeoff_pay_form_list_resp.status_code == 200, (
+                f'writeoffPayFormList HTTP 状态码异常: {writeoff_pay_form_list_resp.status_code}'
+            )
+            assert writeoff_pay_form_list_data.get('code') == 200, (
+                f'writeoffPayFormList 失败: {writeoff_pay_form_list_data}'
+            )
+
+        with allure.step('断言：orderFeePage 查询成功'):
+            order_fee_page_resp = writeoff_result['order_fee_page_resp']
+            order_fee_page_data = writeoff_result['order_fee_page_data']
+            assert order_fee_page_resp.status_code == 200, (
+                f'orderFeePage HTTP 状态码异常: {order_fee_page_resp.status_code}'
+            )
+            assert order_fee_page_data.get('code') == 200, (
+                f'orderFeePage 失败: {order_fee_page_data}'
+            )
+
+        with allure.step('断言：writeoffBatch 执行核销成功'):
+            writeoff_batch_resp = writeoff_result['writeoff_batch_resp']
+            writeoff_batch_data = writeoff_result['writeoff_batch_data']
+            assert writeoff_batch_resp.status_code == 200, (
+                f'writeoffBatch HTTP 状态码异常: {writeoff_batch_resp.status_code}'
+            )
+            assert writeoff_batch_data.get('code') == 200, (
+                f'writeoffBatch 失败: {writeoff_batch_data}'
+            )
+
+        with allure.step('断言：bl_no 来自上游链路（未被覆盖）'):
+            assert result['bl_no'] == bl_no
+
+        with allure.step('断言：链路停在 pay_writeoff 阶段'):
+            assert result['stop_at'] == 'pay_writeoff'
+
+        with allure.step('断言：steps 记录完整'):
+            step_names = [s['name'] for s in result['steps']]
+            expected_steps = [
+                # 前置链路（link24）
+                '新建订单', '按提单号查询', '分发订单', '查询订单',
+                '暂存订单', '查询订单（暂存后）', '提交订单', '查询订单（提交后）',
+                '生成子订单',
+                '录费用(1)', '发起审批(1)', '查询审批ID(1)', '审批通过(1)',
+                '获取箱型信息',
+                '发起订单锁定审批', '查询订单锁定审批ID', '订单锁定审批通过',
+                '发起未放款开票申请审批', '查询未放款开票申请审批ID', '未放款开票申请审批通过',
+                '发起供应商垫付申请审批', '查询供应商垫付申请审批ID', '供应商垫付申请审批通过',
+                '生成费用通知单',
+                '生成费用确认单',
+                '查询应收款项列表',
+                '应收对账预校验',
+                '发起应收对账批次',
+                '查询应收对账批次详情',
+                '查询应收确认列表',
+                '确认应收对账',
+                '确认后查询批次列表',
+                '查询应收款项列表（开票）',
+                '获取汇率',
+                '获取开票方信息',
+                '提交应收开票批次申请',
+                '验证应收开票批次',
+                '查询应收开票批次审批ID',
+                '审批通过应收开票批次',
+                '上传应收发票',
+                '获取发票申请ID',
+                '登记发票到申请',
+                '查询应收核销费用列表',
+                '应收核销',
+                '查询应付项列表',
+                '发起应付对账批次',
+                '查询应付对账批次',
+                '确认应付对账',
+                '查询应付开票项列表',
+                '查询开票订单详情',
+                '发起应付开票批次申请',
+                '上传应付发票文件',
+                '登记应付发票',
+                '查询应付开票申请ID',
+                '分配发票到费用',
+                '查询应付费用列表',
+                '付款需求预览',
+                '提交付款需求',
+                '查询待审核列表',
+                '执行审批',
+                # link25 新增步骤
+                '查询付款单列表',
+                '核销付款单列表',
+                '查询可核销费用列表',
+                '执行核销',
             ]
             for name in expected_steps:
                 assert name in step_names, f'steps 缺少: {name}'
