@@ -33,17 +33,43 @@ pr_study/
 │   └── attachment/            # 测试附件（发票 PDF）
 │
 ├── testcases/                 # 测试用例层
+│   ├── conftest.py            # pytest 全局配置（登录、JSON 摘要）
 │   ├── order/                 # 链路 1~12
+│   │   ├── test_order_basic.py
+│   │   ├── test_fee.py
+│   │   ├── test_audit.py
+│   │   └── test_fee_notice_confirm.py
 │   ├── receive/               # 链路 13~18
+│   │   ├── test_receive_account.py
+│   │   ├── test_receive_writeoff.py
+│   │   ├── test_receive_invoice_batch.py
+│   │   ├── test_receive_invoice_batch_audit.py
+│   │   └── test_receive_invoice_upload.py
 │   └── pay/                   # 链路 19~25
+│       ├── test_pay_account.py
+│       ├── test_pay_apply.py
+│       ├── test_pay_invoice_register.py
+│       └── test_pay_demand.py
 │
 ├── workflows/                 # 流程编排层
 │   ├── order_workflow.py      # 全流程编排入口
 │   ├── order/                 # 订单域步骤
+│   │   ├── order_steps.py
+│   │   ├── audit_steps.py
+│   │   └── fee_steps.py
 │   ├── receive/               # 应收域步骤
+│   │   ├── receive_account_steps.py
+│   │   ├── receive_writeoff_steps.py
+│   │   ├── receive_apply_steps.py
+│   │   └── receive_invoice_register_steps.py
 │   └── pay/                   # 付款域步骤
+│       ├── pay_account_steps.py
+│       ├── pay_apply_steps.py
+│       ├── pay_invoice_register_steps.py
+│       ├── pay_demand_steps.py
+│       ├── pay_demand_audit_steps.py
+│       └── pay_writeoff_steps.py
 │
-├── conftest.py                # pytest 全局配置（登录、JSON 摘要）
 ├── notify.py                  # 企微机器人通知
 ├── pytest.ini                 # pytest 配置（标记定义）
 ├── GUI.py                     # GUI 测试工具（exe 打包入口）

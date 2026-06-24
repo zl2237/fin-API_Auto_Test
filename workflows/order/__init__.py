@@ -7,9 +7,10 @@
 - fee_steps       费用：record_fee / record_generate_fee_notice / record_generate_fee_confirm
 
 应收链路在 workflows/receive/ 子包：
-- receive_account_steps  应收对账：record_receive_account / record_confirm_account
-- invoice_steps   发票：    record_invoice_batch / record_invoice_batch_audit / record_invoice_upload
-- writeoff_steps  核销：    record_receive_writeoff
+- receive_account_steps      应收对账：record_receive_account / record_confirm_account
+- receive_apply_steps        开票申请：record_invoice_batch / record_invoice_batch_audit
+- receive_invoice_register_steps 发票登记：record_invoice_upload
+- receive_writeoff_steps    核销：    record_receive_writeoff
 
 主文件 workflows/order_workflow.py 保留 _attach_context / full_flow / run / run_until_xxx
 作为编排门面，对外 API 不变。
