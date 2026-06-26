@@ -1,3 +1,5 @@
+import os
+
 bind = f"0.0.0.0:{os.getenv('PLATFORM_PORT', '3000')}"
 workers = 1
 worker_class = "sync"
@@ -5,7 +7,6 @@ timeout = 0
 keepalive = 5
 
 # 重要：gunicorn 启动目标为 server:app（不是 app.py）
-    bind = "0.0.0.0:3000"
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"

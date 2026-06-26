@@ -197,9 +197,9 @@ npm run build
 
 # 2. 将构建产物复制到 backend/static
 #    Linux/Mac:
-#    cp -r dist/* platform/backend/app/static/
+#    cp -r dist/* platform/backend/static/
 #    Windows (PowerShell):
-#    Copy-Item -Recurse dist\* ..\backend\app\static\
+#    Copy-Item -Recurse dist\* ..\backend\static\
 
 # 3. 启动 Flask（同时服务 API + 静态页面）
 cd platform/backend
@@ -283,8 +283,8 @@ npm run build
 ### 步骤 4：复制前端产物到 backend/static
 
 ```bash
-mkdir -p platform/backend/app/static
-cp -r platform/frontend/dist/* platform/backend/app/static/
+mkdir -p platform/backend/static
+cp -r platform/frontend/dist/* platform/backend/static/
 ```
 
 ### 步骤 5：配置 Nginx
@@ -298,7 +298,7 @@ server {
     client_max_body_size 10M;
 
     location / {
-        root /opt/pr_study/platform/backend/app/static;
+        root /opt/pr_study/platform/backend/static;
         try_files $uri $uri/ /index.html;
     }
 
