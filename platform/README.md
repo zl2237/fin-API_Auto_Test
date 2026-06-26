@@ -143,6 +143,41 @@ journalctl -u pr_study -f  # 查看日志
 
 ---
 
+### 后续代码更新
+
+生产环境首次部署完成后，后续代码更新无需重复完整部署流程，按以下步骤增量更新即可：
+
+```bash
+cd /opt/pr_study
+git pull origin main
+```
+
+```bash
+cd platform/backend
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+```bash
+cd platform/frontend
+npm install
+npm run build
+```
+
+```bash
+mkdir -p platform/backend/static
+cp -r platform/frontend/dist/* platform/backend/static/
+```
+
+```bash
+systemctl restart pr_study
+journalctl -u pr_study -f  # 查看日志确认启动正常
+```
+
+> 若仅修改了 Python 代码、未变更前端或依赖，可省略前端构建和 `pip install`，直接 `git pull` 后重启服务即可。
+
+---
+
 ### 可选：使用 Nginx 反向代理（推荐用于生产）
 
 如果你希望统一域名/端口、做静态资源缓存、HTTPS 或负载均衡，可以在 Systemd 部署完成后继续加 Nginx。
