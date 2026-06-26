@@ -19,13 +19,13 @@ _constants:
   # invoiceAdd 发票类型名称
   invoice_type_name: "增值税数电普通发票"
   # 发票金额（默认，与 usd_amount 保持一致，currency=USD）
-  invoice_amount: "1260"
+  invoice_amount: "600"
   # 发票税额
   invoice_tax_amount: "0.00"
   # 汇率（与 batch_order_edit_pay.default_exchange_rate 一致）
   invoice_exchange_rate: "7.0000"
   # USD 金额（默认，与 invoice_amount 一致，currency=USD）
-  usd_amount: "1260"
+  usd_amount: "600"
   # buyer_identity：购买方身份（main=主体，customer=客户）
   buyer_identity: "main"
   # seller_identity：销售方身份（supplier=供应商）
@@ -72,11 +72,11 @@ apply_page:
 # buyer：购买方（付款方，我方主体）信息
 # buyer_identity=main 时填主体信息
 buyer:
-  chinese_header: "上海一帜物流科技有限公司"
-  identifier_no: "91310118MA1JNY2070"
+  chinese_header: "青岛易航道物流科技有限公司"
+  identifier_no: "91370202MABU30PK3F"
 
 # seller：销售方（收款方，供应商）信息
 # seller_identity=supplier 时填供应商信息
 seller:
-  chinese_header: "芜湖长信科技股份有限公司"
-  identifier_no: "913400007199042708"
+  chinese_header: "青岛展鸿国际货运代理有限公司"
+  identifier_no: "91370203326012810A"

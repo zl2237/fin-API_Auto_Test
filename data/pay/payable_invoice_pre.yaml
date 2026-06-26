@@ -41,11 +41,11 @@ finance_pay_list_invoice:
   search_style: "invoice"
   batch_type: 1
   # 主体ID（参考值：6=上海一帜物流科技有限公司）
-  main_id: "6"
+  main_id: "1"
   # 付款结算对象ID（参考值：92102=芜湖长信科技股份有限公司）
-  pay_settle_object_id: "92102"
+  pay_settle_object_id: "364"
   # 付款结算对象名称（与 pay_settle_object_id 配对）
-  pay_settle_object: "芜湖长信科技股份有限公司"
+  pay_settle_object: "青岛展鸿国际货运代理有限公司"
 
 # --------------------------------------------------------------------------
 # getOrderInfoByFeeId 参数
@@ -103,6 +103,6 @@ batch_order_edit_pay:
   # fast_remark：快速备注（固定 JSON 空数组）
   fast_remark: "[]"
   # purchaser_tax_number：购方税号
-  purchaser_tax_number: "91310118MA1JNY2070"
+  purchaser_tax_number: "91370202MABU30PK3F"
   # batch_order_remark：批次备注（默认测试值）
   batch_order_remark: "test_remark"

@@ -48,7 +48,7 @@ writeoff_batch:
   exchange_rate: 1
 
   # main_bank_id：主账户银行ID
-  main_bank_id: "45"
+  main_bank_id: "13"
 
   # statement_currency：核销对账币种
   statement_currency: "USD"

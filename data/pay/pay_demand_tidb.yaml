@@ -33,10 +33,7 @@ payment_demand:
   # operation_type：1=新建付款需求
   operation_type: 1
 
-  # select_node_user：审批节点用户配置
-  select_node_user:
-    - node_sort: 0
-      user_id: 60
+  # select_node_user：审批节点用户（运行时从 .env 的 ORDER_CREATE_ID 读取，不在此硬编码）
 
   # split_dimension：拆分维度
   split_dimension:
