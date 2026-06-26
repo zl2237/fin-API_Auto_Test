@@ -1,38 +1,41 @@
-# API 测试平台
+# Web 测试平台
 
-基于 Vue 3 + Flask 的自动化测试执行平台，支持登录认证、链路选择、实时日志和结果展示。
+基于 Vue 3 + Flask 的自动化测试执行平台，支持登录认证、环境管理、一键执行、实时日志和结果展示。
 
 ## 项目结构
 
 ```
 platform/
-├── backend/           # Flask 后端
-│   ├── server.py      # Flask 入口，同时 serve Vue 静态文件
-│   ├── api/           # REST API（auth, markers, run, logs）
-│   ├── services/      # 业务逻辑（auth, test_runner, store）
-│   ├── static/        # Vue 构建产物（部署时由 frontend build 填充）
-│   ├── .env.example   # 环境变量示例
-│   └── requirements.txt
-├── frontend/          # Vue 3 前端（Vite + Element Plus）
+├── backend/               # Flask 后端
+│   ├── run.py             # Flask 启动入口
+│   ├── requirements.txt   # Python 依赖
+│   ├── .env.example       # 平台环境变量示例
+│   └── app/               # 应用包
+│       ├── api/           # 路由：auth / environments / exec
+│       ├── core/          # config / db
+│       ├── models/
+│       ├── services/
+│       └── utils/
+├── frontend/              # Vue 3 前端（Vite + Element Plus）
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
 │   └── src/
-│       ├── api/request.ts    # Axios 封装，含登录拦截
-│       ├── stores/auth.ts    # Pinia 认证状态
-│       ├── router/index.ts   # 路由（/login, /dashboard）
-│       ├── views/LoginView.vue
-│       └── views/DashboardView.vue
-└── deploy/            # 部署配置
-    ├── gunicorn_config.py
-    └── test-platform.service
+│       ├── api/           # axios 接口封装
+│       ├── views/         # 页面组件
+│       ├── components/    # 公共组件
+│       ├── stores/        # Pinia 状态管理
+│       └── utils/         # request 拦截器
+└── README.md
 ```
 
 ## 环境要求
 
 - Python >= 3.10
 - Node.js >= 18
-- pytest + pytest-xdist + pytest-repeat + allure-pytest（项目依赖）
-- Ubuntu 虚拟机（部署目标）
+- Ubuntu 22.04+（生产部署）
 
-## 本地开发
+## 本地启动
 
 ### 1. 安装后端依赖
 
@@ -41,19 +44,23 @@ cd platform/backend
 pip install -r requirements.txt
 ```
 
-### 2. 启动后端
+### 2. 配置平台环境变量
+
+```bash
+cp platform/backend/.env.example platform/backend/.env
+# 编辑 .env，填入管理员账号和被测系统配置
+```
+
+### 3. 启动后端
 
 ```bash
 cd platform/backend
-python server.py
+python run.py
 ```
 
-启动后访问：
-- 前端页面：http://localhost:3000/
-- 健康检查：http://localhost:3000/api/health
-- 链路列表：http://localhost:3000/api/markers
+服务运行在 `http://localhost:5000`。
 
-### 3. 前端开发（可选，有热重载）
+### 4. 启动前端（开发模式）
 
 ```bash
 cd platform/frontend
@@ -61,63 +68,116 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:5173（前端 dev server 代理 API 到 :5000）
+访问 `http://localhost:3000`（Vite 开发服务器，API 代理到 `http://localhost:5000`）。
 
-## 部署到 Ubuntu 虚拟机
+## 生产部署（Ubuntu VM）
 
-### 1. 上传整个 pr_study 目录到虚拟机
+### 前置条件
+
+- Ubuntu 22.04+，已安装 Python 3.10+、Node.js 18+
+- 开放 5000（Flask）端口；若加 Nginx 则还需开放 80
+
+### 步骤 1：上传项目
 
 ```bash
-scp -r pr_study lele@192.168.122.128:/home/lele/
+# 通过 scp / git clone 上传到 /opt/pr_study
+cd /opt/pr_study
+git clone http://172.16.18.55:88/root/pr_study.git  # 或 scp -r
 ```
 
-### 2. 创建 Python 虚拟环境并安装依赖
+### 步骤 2：安装后端依赖
 
 ```bash
-python3 -m venv ~/venv
-source ~/venv/bin/activate
-cd ~/pr_study/platform/backend
+cd platform/backend
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. 构建前端
+### 步骤 3：构建前端
 
 ```bash
-cd ~/pr_study/platform/frontend
-sudo chmod -R 775 /home/lele/pr_study
-# 每次更新都需要以下步骤
+cd platform/frontend
 npm install
-npm run build          # 产物输出到 ../backend/static/
+npm run build
 ```
 
-### 4. 启动服务
-
-方式一：直接运行
+### 步骤 4：复制前端产物到 backend/static
 
 ```bash
-cd ~/pr_study/platform/backend
-PLATFORM_PORT=5000 PLATFORM_USER=admin PLATFORM_PASSWORD=admin123 \
-  FLASK_SECRET_KEY=change-me-in-prod \
-  gunicorn -c ../deploy/gunicorn_config.py server:app
+mkdir -p platform/backend/static
+cp -r platform/frontend/dist/* platform/backend/static/
 ```
 
-方式二：systemd 服务（推荐）
-
-编辑 `deploy/test-platform.service`，替换以下占位符：
-- `{{USER}}` / `{{GROUP}}` — 运行用户
-- `{{PROJECT_ROOT}}` — 项目路径，如 `/home/user/pr_study`
-- `{{PATH}}` — venv bin 路径，如 `/home/user/venv/bin`
-- `{{SECRET_KEY}}` — Flask secret key
+### 步骤 5：配置 Systemd
 
 ```bash
-sudo cp ~/pr_study/platform/deploy/test-platform.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable test-platform
-sudo systemctl start test-platform
-sudo systemctl status test-platform
+# /etc/systemd/system/pr_study.service
+[Unit]
+Description=PR Study Platform
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/pr_study/platform/backend
+Environment="PATH=/opt/pr_study/platform/backend/.venv/bin"
+ExecStart=/opt/pr_study/platform/backend/.venv/bin/python run.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-访问 `http://your-vm-ip:3000`
+```bash
+systemctl daemon-reload
+systemctl enable --now pr_study
+journalctl -u pr_study -f  # 查看日志
+```
+
+### 步骤 6：访问
+
+浏览器打开 `http://172.16.18.55:90/`，使用 `admin / admin123` 登录。
+
+> 当前环境通过端口转发将虚拟机 5000 映射到主机 `172.16.18.55:90`，因此无需暴露虚拟机 IP。
+
+---
+
+### 可选：使用 Nginx 反向代理（推荐用于生产）
+
+如果你希望统一域名/端口、做静态资源缓存、HTTPS 或负载均衡，可以在 Systemd 部署完成后继续加 Nginx。
+
+#### Nginx 配置
+
+```bash
+# /etc/nginx/sites-available/pr_study
+server {
+    listen 80;
+    server_name <your-domain-or-ip>;
+
+    client_max_body_size 10M;
+
+    location / {
+        root /opt/pr_study/platform/backend/static;
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/pr_study /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+启用 Nginx 后，可直接访问 `http://<your-ip>`。
+
+---
 
 ## 平台默认账号
 
@@ -125,15 +185,15 @@ sudo systemctl status test-platform
 |-------|----------|
 | admin | admin123 |
 
-修改方式：设置环境变量 `PLATFORM_USER` 和 `PLATFORM_PASSWORD`。
+在 `platform/backend/.env` 中修改 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
 
 ## 主要功能
 
 | 功能 | 说明 |
 |------|------|
-| 登录认证 | 简单账号密码，会话级有效；账号/密码错误时给出明确提示 |
-| 环境配置 | BASE_URL、LOGIN_URL、测试账号/密码、USER_ID（创建者） |
-| 链路选择 | 通过 pytest marker 筛选 link1 ~ linkN |
-| 循环执行 | 支持指定循环次数（loop_count） |
+| 登录认证 | 账号密码，会话级有效；错误时给出明确提示 |
+| 环境配置 | 通过 Web 页面管理被测系统环境 |
+| 链路选择 | 通过 pytest marker 筛选 link1 ~ link25 |
+| 循环执行 | 支持指定循环次数 |
 | 实时日志 | SSE 流式推送 pytest 输出到前端，自动滚动 |
 | 结果汇总 | 通过 / 失败 / 跳过数量 + 失败用例详情 |
