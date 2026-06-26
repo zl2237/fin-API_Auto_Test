@@ -331,6 +331,14 @@ const running = ref(false)
 const summary = computed(() => run.value.result?.summary || {})
 const failedCases = computed(() => summary.value.details?.failed || [])
 
+// 从 base_url 提取环境标识（test_env），传给后端用于 data 层 YAML 切换
+const testEnv = computed(() => {
+  const url = formStore.data.base_url || ""
+  if (url.includes("tidb")) return "tidb"
+  if (url.includes("pre")) return "pre"
+  return ""
+})
+
 function handleLogout() {
   auth.logout()
   router.push({ name: 'Login' })
@@ -378,6 +386,7 @@ async function handleRun() {
       order_prefix: formStore.data.order_prefix,
       loop_count: formStore.data.loop_count,
       order_create_id: formStore.data.order_create_id,
+      test_env: testEnv.value,
     })
     if (!data.ok) {
       throw new Error(data.message || '启动失败')
@@ -393,7 +402,10 @@ async function handleRun() {
 }
 
 function listenLogs(runId: string) {
-  const es = new EventSource(`/api/run/${runId}/logs`)
+  const logUrl = import.meta.env.DEV
+    ? `http://localhost:5000/api/run/${runId}/logs`
+    : `/api/run/${runId}/logs`
+  const es = new EventSource(logUrl)
   es.onmessage = (e) => {
     logs.value.push(e.data)
     nextTick(() => {

@@ -1,13 +1,12 @@
 """
 审批流测试数据 - 按审批类型组织，后端生成审批单号
 """
-import os
 import re
 import time as _time
 import random as _random
 from typing import Any, Dict, List
 
-import yaml as _yaml
+from data.env import _load_yaml
 
 
 def _resolve_env_vars(obj: Any) -> Any:
@@ -20,15 +19,13 @@ def _resolve_env_vars(obj: Any) -> Any:
         # 支持 ${VAR} 语法，替换为环境变量值
         def _replace(m):
             var_name = m.group(1)
-            return os.environ.get(var_name, obj)  # 若环境变量不存在，保留原值
+            return __import__('os').environ.get(var_name, obj)  # 若环境变量不存在，保留原值
         return re.sub(r'\$\{(\w+)\}', _replace, obj)
     return obj
 
 
 # 读取 YAML 后立即做环境变量替换（GUI 通过 .env 写入 ORDER_CREATE_ID）
-_audit_yaml_path = os.path.join(os.path.dirname(__file__), "audit.yaml")
-with open(_audit_yaml_path, encoding="utf-8") as _f:
-    _AUDIT_CFG = _resolve_env_vars(_yaml.safe_load(_f))
+_AUDIT_CFG = _resolve_env_vars(_load_yaml("audit"))
 
 
 class AuditFlowData:

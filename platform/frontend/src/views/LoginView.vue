@@ -33,14 +33,6 @@
             @keyup.enter="handleLogin"
           />
         </el-form-item>
-        <el-form-item label="用户ID">
-          <el-input
-            v-model="form.user_id"
-            placeholder="请输入用户ID（用于审批流节点配置）"
-            size="large"
-            @keyup.enter="handleLogin"
-          />
-        </el-form-item>
         <el-form-item style="margin-top: 24px">
           <el-button
             type="primary"
@@ -67,11 +59,11 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
-const form = reactive({ username: '', password: '', user_id: '' })
+const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 
 async function handleLogin() {
-  if (!form.username || !form.password || !form.user_id) return
+  if (!form.username || !form.password) return
   loading.value = true
   try {
     const { data } = await request.post('/auth/login', form)

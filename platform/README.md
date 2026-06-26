@@ -84,8 +84,9 @@ pip install -r requirements.txt
 
 ```bash
 cd ~/pr_study/platform/frontend
-npm install
 sudo chmod -R 775 /home/lele/pr_study
+# 每次更新都需要以下步骤
+npm install
 npm run build          # 产物输出到 ../backend/static/
 ```
 

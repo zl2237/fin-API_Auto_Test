@@ -9,23 +9,11 @@
 
 API 层对应：api/pay/ 子包
 """
-from pathlib import Path
 from typing import Any, Dict, List
 
 import json
-import yaml
 
-
-# ========================================================================
-# YAML 加载（每个阶段/链路对应独立 YAML 文件）
-# ========================================================================
-
-def _load_yaml(name: str) -> Dict[str, Any]:
-    path = Path(__file__).parent / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+from data.env import _load_yaml
 
 
 # payable_account.yaml - link19 / link20（应付对账批次 + 确认应付对账）
@@ -1412,12 +1400,8 @@ class PayDemandData:
 # ========================================================================
 
 def _load_yaml_audit(name: str) -> Dict[str, Any]:
-    """加载审核配置 YAML"""
-    path = Path(__file__).parent / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    """加载审核配置 YAML（支持环境切换）"""
+    return _load_yaml(name)
 
 
 _AUDIT_CFG = _load_yaml_audit("pay_demand_audit")
@@ -1544,12 +1528,8 @@ class PayDemandAuditData:
 # ========================================================================
 
 def _load_yaml_writeoff(name: str) -> Dict[str, Any]:
-    """加载核销配置 YAML"""
-    path = Path(__file__).parent / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    """加载核销配置 YAML（支持环境切换）"""
+    return _load_yaml(name)
 
 
 _WRITEOFF_CFG = _load_yaml_writeoff("pay_writeoff")

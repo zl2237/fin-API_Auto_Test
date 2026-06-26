@@ -9,22 +9,9 @@
 
 API 层对应：api/receive/ 子包
 """
-from pathlib import Path
 from typing import Dict, Any, List
 
-import yaml
-
-
-# ========================================================================
-# YAML 加载（4 个 receive yaml 全部在本目录 data/receive/ 下）
-# ========================================================================
-
-def _load_yaml(name: str) -> Dict[str, Any]:
-    path = Path(__file__).parent / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+from data.env import _load_yaml
 
 
 # ============================================================================

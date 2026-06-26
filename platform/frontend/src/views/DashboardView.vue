@@ -393,7 +393,10 @@ async function handleRun() {
 }
 
 function listenLogs(runId: string) {
-  const es = new EventSource(`/api/run/${runId}/logs`)
+  const logUrl = import.meta.env.DEV
+    ? `http://localhost:5000/api/run/${runId}/logs`
+    : `/api/run/${runId}/logs`
+  const es = new EventSource(logUrl)
   es.onmessage = (e) => {
     logs.value.push(e.data)
     nextTick(() => {

@@ -19,23 +19,10 @@ API 层对应：api/order/ 子包（order_api.py / audit_api.py）
 from dataclasses import dataclass
 from typing import List, Dict, Any
 from datetime import datetime
-from pathlib import Path
-import uuid
 import os
+import uuid
 
-import yaml
-
-
-# ========================================================================
-# YAML 加载（5 个 order 域 yaml 全部在本目录 data/order/ 下）
-# ========================================================================
-
-def _load_yaml(name: str) -> Dict[str, Any]:
-    path = Path(__file__).parent / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+from data.env import _load_yaml
 
 
 _ORDER_CFG = _load_yaml("order")

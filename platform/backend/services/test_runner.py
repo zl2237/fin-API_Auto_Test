@@ -1,6 +1,8 @@
 import os
+import re
 import subprocess
 import sys
+import tempfile
 import threading
 from pathlib import Path
 
@@ -8,27 +10,28 @@ from services.store import store
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env"
 REPORT_DIR = PROJECT_ROOT / "report"
 
 # 用后端自身的 Python 解释器，保证插件一致性
 PYTHON_EXE = sys.executable
 
 
-def _write_env(payload: dict):
-    lines = [
-        f"BASE_URL={payload.get('base_url', '').strip()}",
-        f"LOGIN_URL={payload.get('login_url', '').strip()}",
-        f"USERNAME={payload.get('test_username', '').strip()}",
-        f"PASSWORD={payload.get('test_password', '').strip()}",
-        f"TOKEN_FIELD={payload.get('token_field', 'data.token').strip()}",
-        f"TOKEN_TYPE={payload.get('token_type', '').strip()}",
-        f"AUTH_HEADER={payload.get('auth_header', 'Authorization').strip()}",
-        f"ORDER_CREATE_ID={payload.get('order_create_id', '').strip()}",
-        f"ORDER_PREFIX={payload.get('order_prefix', 'lele').strip()}",
-        f"LOOP_COUNT={payload.get('loop_count', 1)}",
-    ]
-    ENV_FILE.write_text("\n".join(lines), encoding="utf-8")
+def _prepare_env(run_id: str, payload: dict):
+    """根据 payload 生成独立的子进程环境变量，不写回项目根目录的 .env。"""
+    env = os.environ.copy()
+    env["BASE_URL"] = payload.get("base_url", "").strip()
+    env["LOGIN_URL"] = payload.get("login_url", "").strip()
+    env["USERNAME"] = payload.get("test_username", "").strip()
+    env["PASSWORD"] = payload.get("test_password", "").strip()
+    env["TOKEN_FIELD"] = payload.get("token_field", "data.token").strip()
+    env["TOKEN_TYPE"] = payload.get("token_type", "").strip()
+    env["AUTH_HEADER"] = payload.get("auth_header", "Authorization").strip()
+    env["ORDER_CREATE_ID"] = payload.get("order_create_id", "").strip()
+    env["ORDER_PREFIX"] = payload.get("order_prefix", "lele").strip()
+    env["LOOP_COUNT"] = str(payload.get("loop_count", 1))
+    env["TEST_ENV"] = payload.get("test_env", "").strip()
+    env["ALLURE_RESULT_DIR"] = str(REPORT_DIR / f"allure-results-{run_id}")
+    return env
 
 
 def _parse_summary_from_logs(logs: list) -> dict:
@@ -49,13 +52,9 @@ def _parse_summary_from_logs(logs: list) -> dict:
 
 def run_test(run_id: str, marker: str, payload: dict):
     def _worker():
-        # 先删旧 .env，再写新值（避免 pytest 读旧配置）
-        try:
-            ENV_FILE.unlink(missing_ok=True)
-        except Exception:
-            pass
-        _write_env(payload)
-        loop_count = payload.get("loop_count", 1)
+        subprocess_env = _prepare_env(run_id, payload)
+        loop_count = int(payload.get("loop_count", 1))
+
         try:
             cmd = [
                 PYTHON_EXE, "-m", "pytest",
@@ -68,6 +67,7 @@ def run_test(run_id: str, marker: str, payload: dict):
             process = subprocess.Popen(
                 cmd,
                 cwd=str(PROJECT_ROOT),
+                env=subprocess_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -82,8 +82,8 @@ def run_test(run_id: str, marker: str, payload: dict):
                 store.append_log(run_id, line)
             process.wait()
 
+            summary_path = REPORT_DIR / f"allure-results-{run_id}" / "test_summary.json"
             if process.returncode == 0:
-                summary_path = REPORT_DIR / "allure-results" / "test_summary.json"
                 if summary_path.exists():
                     import json as _json
                     result = {
@@ -107,10 +107,5 @@ def run_test(run_id: str, marker: str, payload: dict):
                 store.complete(run_id, result)
         except Exception as e:
             store.fail(run_id, str(e))
-        finally:
-            try:
-                ENV_FILE.unlink(missing_ok=True)
-            except Exception:
-                pass
 
     threading.Thread(target=_worker, daemon=True).start()
