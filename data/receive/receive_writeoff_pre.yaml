@@ -37,7 +37,7 @@ _constants:
     statement_currency: "USD"
     exchange_rate: 1
     ischangeRate: false
-    main_bank_id: "11"   # 固定值，由数据层配置（user-confirmed）
+    main_bank_id: "77"   # 固定值，由数据层配置（user-confirmed）
     receipt_voucher: ""
     writeoff_amount_cny: "0.00"
     writeoff_amount_usd: "0.00"
@@ -59,8 +59,8 @@ _constants:
   is_penetrate: "0"
 
   # 主体名称（与系统对齐）
-  main_name: "青岛易航道物流科技有限公司"
-  main_id: "1"
+  main_name: "青岛易汇智供应链管理有限公司"
+  main_id: "31"
 
 # ---------------------------------------------------------------------------
 # feeTakePage（按提单号分页查询费用实付 ID 列表）
