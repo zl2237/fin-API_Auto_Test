@@ -1,4 +1,4 @@
-# PR Study - 接口自动化测试框架
+# PR Study - 接口自动化测试框架 + Web 测试平台
 
 基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 25 条链路。
 
@@ -6,7 +6,7 @@
 - 25 条链路（link1~link25），按依赖顺序递增，link25 隐含 link1~link24
 - workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
 - 所有业务配置参数集中存储于 YAML，Python 代码零硬编码
-- GUI 工具支持弹窗配置、实时日志、批量循环执行
+- Web 平台：环境管理、一键执行、实时日志、执行历史
 - CI 环境自动企微机器人通知
 
 ---
@@ -17,8 +17,21 @@
 pr_study/
 ├── api/                        # API 层（按业务域组织）
 │   ├── order/                  # 订单域
+│   │   ├── order_api.py        # 订单 CRUD + 分发
+│   │   └── audit_api.py        # 资产推送审批
 │   ├── receive/               # 应收域
+│   │   ├── receive_account_api.py
+│   │   ├── receive_apply_api.py
+│   │   ├── receive_invoice_register_api.py
+│   │   └── receive_writeoff_api.py
 │   └── pay/                    # 付款域
+│       ├── pay_account_api.py
+│       ├── pay_apply_api.py
+│       ├── pay_demand_api.py
+│       ├── pay_demand_audit_api.py
+│       ├── pay_invoice_register_api.py
+│       ├── pay_writeoff_api.py
+│       └── payable_api.py
 │
 ├── config/
 │   └── settings.py            # 全局配置（.env 加载）
@@ -29,8 +42,7 @@ pr_study/
 ├── data/                       # 数据层（YAML 配置 + 数据类）
 │   ├── order/                 # 订单基础、费用、审批流、费用通知单、费用确认单
 │   ├── receive/               # 应收对账、开票、核销
-│   ├── pay/                   # 应付对账、开票、付款需求、核销
-│   └── attachment/            # 测试附件（发票 PDF）
+│   └── pay/                   # 应付对账、开票、付款需求、核销
 │
 ├── testcases/                 # 测试用例层
 │   ├── conftest.py            # pytest 全局配置（登录、JSON 摘要）
@@ -70,9 +82,31 @@ pr_study/
 │       ├── pay_demand_audit_steps.py
 │       └── pay_writeoff_steps.py
 │
+├── platform/                  # 🆕 Web 测试平台
+│   ├── backend/               # Flask 后端 API
+│   │   ├── run.py             # 启动入口
+│   │   ├── requirements.txt   # Python 依赖
+│   │   ├── app/
+│   │   │   ├── api/           # 路由：auth / environments / exec
+│   │   │   ├── core/          # config / db
+│   │   │   ├── models/
+│   │   │   ├── services/
+│   │   │   └── utils/
+│   │   └── static/            # Vue 构建产物（开发模式由 Vite 托管）
+│   └── frontend/              # Vue 3 前端
+│       ├── package.json
+│       ├── vite.config.js
+│       ├── index.html
+│       └── src/
+│           ├── api/           # axios 接口封装
+│           ├── views/         # 页面组件
+│           ├── components/    # 公共组件
+│           ├── stores/        # Pinia 状态管理
+│           └── utils/         # request 拦截器
+│
 ├── notify.py                  # 企微机器人通知
 ├── pytest.ini                 # pytest 配置（标记定义）
-├── GUI.py                     # GUI 测试工具（exe 打包入口）
+├── conftest.py                # pytest 根配置（redirect）
 ├── .env.example               # 环境变量模板
 └── requirements.txt           # Python 依赖
 ```
@@ -81,55 +115,253 @@ pr_study/
 
 ## 技术栈
 
-| 技术 | 版本 | 用途 |
+| 层级 | 技术 | 版本 |
 |------|------|------|
-| pytest | >=7.4.0 | 测试框架 |
-| requests | >=2.31.0 | HTTP 客户端 |
-| loguru | >=0.7.2 | 日志记录 |
-| allure-pytest | >=2.13.2 | 测试结果收集 |
-| python-dotenv | >=1.0.0 | 环境变量加载 |
-| PyYAML | >=6.0 | YAML 配置解析 |
+| 测试框架 | pytest | >=7.4.0 |
+| HTTP 客户端 | requests | >=2.31.0 |
+| 日志记录 | loguru | >=0.7.2 |
+| YAML 配置 | PyYAML | >=6.0 |
+| 后端框架 | Flask | >=3.0.0 |
+| 数据库 | SQLite | 3.x（无需额外服务） |
+| 前端框架 | Vue 3 + Vite | ^3.4 / ^5.0 |
+| UI 组件库 | Element Plus | ^2.4.0 |
 
 ---
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 克隆项目
 
 ```bash
+git clone <repo-url>
+cd pr_study
+```
+
+### 2. 安装依赖
+
+**后端（Python）：**
+
+```bash
+cd platform/backend
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境
+**前端（Node.js）：**
 
 ```bash
-copy .env.example .env
-# 编辑 .env，填入 BASE_URL、USERNAME、PASSWORD、ORDER_CREATE_ID
+cd platform/frontend
+npm install
 ```
 
-| 配置项 | 说明 |
-|--------|------|
-| `BASE_URL` | API 基础域名 |
-| `USERNAME` / `PASSWORD` | 登录凭证（敏感） |
-| `ORDER_CREATE_ID` | 操作员用户ID |
-| `TOKEN_FIELD` | Token 字段路径（默认 `data.token`） |
+### 3. 配置环境
 
-> `.env` 已加入 `.gitignore`，不会推送。
-
-### 3. 运行测试
+**后端环境变量：**
 
 ```bash
-pytest -v                          # 运行全部
+cp platform/backend/.env.example platform/backend/.env
+# 编辑 .env，填入管理员账号和被测系统配置
+```
+
+**前端代理（开发模式）：**
+
+`platform/frontend/vite.config.js` 中已配置 Vite 代理到 `http://localhost:5000`。
+
+---
+
+## 运行方式
+
+### 方式一：开发模式（推荐用于本地调试）
+
+**终端 1 - 启动 Flask 后端：**
+
+```bash
+cd platform/backend
+python run.py
+# 服务运行在 http://localhost:5000
+```
+
+**终端 2 - 启动 Vue 前端：**
+
+```bash
+cd platform/frontend
+npm run dev
+# 访问 http://localhost:3000
+```
+
+### 方式二：生产模式（Flask 托管构建后的静态文件）
+
+```bash
+# 1. 构建前端
+cd platform/frontend
+npm run build
+
+# 2. 将构建产物复制到 backend/static
+#    Linux/Mac:
+#    cp -r dist/* platform/backend/app/static/
+#    Windows (PowerShell):
+#    Copy-Item -Recurse dist\* ..\backend\app\static\
+
+# 3. 启动 Flask（同时服务 API + 静态页面）
+cd platform/backend
+python run.py
+```
+
+---
+
+## Web 平台使用
+
+### 1. 登录
+
+- 默认账号：`admin`
+- 默认密码：`admin123`
+- 在 `.env` 中修改 `ADMIN_USERNAME` / `ADMIN_PASSWORD`
+
+### 2. 环境管理
+
+在「环境管理」页面添加被测系统环境：
+
+| 字段 | 说明 |
+|------|------|
+| 名称 | 如 `uat`、`sit`、`prod` |
+| API 地址 | 被测系统域名，如 `https://xxx.com` |
+| 账号 / 密码 | 登录凭据 |
+| Token 字段 | 响应中 token 路径，默认 `data.token` |
+| 默认 | 是否设为默认环境 |
+
+### 3. 发起测试
+
+1. 选择环境
+2. 勾选要执行的链路（可多选，如 link1~link25）
+3. 设置循环次数（1~100）
+4. （可选）输入费用配置 JSON
+5. 点击「开始执行」
+
+平台将：
+- 自动写入 `.env` 凭据
+- 在子进程中调用 `pytest`
+- 通过 SSE 实时推送日志到前端
+- 将执行结果存入 SQLite
+
+### 4. 执行历史
+
+查看历史执行记录，包括状态、链路、耗时、通过/失败数量。
+
+---
+
+## 部署到 Ubuntu VM（生产环境）
+
+### 前置条件
+
+- Ubuntu 22.04+，已安装 Python 3.10+、Node.js 18+、Nginx
+- 开放 5000（Flask）和 80（Nginx）端口
+
+### 步骤 1：上传项目
+
+```bash
+# 通过 scp / git clone 上传到 /opt/pr_study
+cd /opt/pr_study
+git clone <repo-url> .  # 或 scp -r
+```
+
+### 步骤 2：安装后端依赖
+
+```bash
+cd platform/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 步骤 3：安装前端依赖并构建
+
+```bash
+cd platform/frontend
+npm install
+npm run build
+```
+
+### 步骤 4：复制前端产物到 backend/static
+
+```bash
+mkdir -p platform/backend/app/static
+cp -r platform/frontend/dist/* platform/backend/app/static/
+```
+
+### 步骤 5：配置 Nginx
+
+```bash
+# /etc/nginx/sites-available/pr_study
+server {
+    listen 80;
+    server_name <your-domain-or-ip>;
+
+    client_max_body_size 10M;
+
+    location / {
+        root /opt/pr_study/platform/backend/app/static;
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/pr_study /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+### 步骤 6：配置 Systemd
+
+```bash
+# /etc/systemd/system/pr_study.service
+[Unit]
+Description=PR Study Platform
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/pr_study/platform/backend
+Environment="PATH=/opt/pr_study/platform/backend/.venv/bin"
+ExecStart=/opt/pr_study/platform/backend/.venv/bin/python run.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now pr_study
+journalctl -u pr_study -f  # 查看日志
+```
+
+### 步骤 7：访问
+
+浏览器打开 `http://<your-ip>`，使用 `admin / admin123` 登录。
+
+---
+
+## 直接运行 pytest（命令行模式）
+
+保留原有的 pytest 命令行能力，不依赖 Web 平台：
+
+```bash
+# 配置被测系统
+cp .env.example .env
+# 编辑 .env 填入 BASE_URL、USERNAME、PASSWORD
+
+# 运行
+pytest -v                          # 全部
 pytest -m link1                    # 仅链路1
-pytest -m "link11 or link12"       # 同时跑多条
-pytest -m link25                   # 从链路25（包含所有前置步骤）
+pytest -m "link11 or link12"       # 多条链路
+pytest -m link25                   # 全流程
 ```
-
-### 4. 测试结果
-
-- **终端**：通过 / 失败 / 跳过数量汇总，失败用例详情
-- **JSON 摘要**：`report/allure-results/test_summary.json`
-- **企微通知**：CI 环境自动触发，本地不触发
 
 ---
 
@@ -162,50 +394,35 @@ pytest -m link25                   # 从链路25（包含所有前置步骤）
 ```python
 from workflows.order_workflow import OrderWorkflow
 
-OrderWorkflow.run_until_distribute()              # link2
-OrderWorkflow.run_until_stash()                  # link3
-OrderWorkflow.run_until_generate_sub_order()     # link5
-OrderWorkflow.run_until_record_fee(...)          # link6
-OrderWorkflow.run_until_fee_notice()             # link11
-OrderWorkflow.run_until_fee_confirm()            # link12
-OrderWorkflow.run_until_receive_account()        # link13
-OrderWorkflow.run_until_confirm_account()       # link14
-OrderWorkflow.run_until_invoice_batch()         # link15
-OrderWorkflow.run_until_invoice_batch_audit()  # link16
-OrderWorkflow.run_until_invoice_upload()        # link17
-OrderWorkflow.run_until_receive_writeoff()       # link18
-OrderWorkflow.run_until_payable_account()       # link19
-OrderWorkflow.run_until_confirm_payable()       # link20
-OrderWorkflow.run_until_payable_invoice_apply()  # link21
-OrderWorkflow.run_until_payable_invoice_register()  # link22
-OrderWorkflow.run_until_pay_demand()           # link23
-OrderWorkflow.run_until_pay_demand_audit()      # link24
-OrderWorkflow.run_until_pay_writeoff()          # link25
+OrderWorkflow.run_until_distribute()                # link2
+OrderWorkflow.run_until_stash()                    # link3
+OrderWorkflow.run_until_generate_sub_order()        # link5
+OrderWorkflow.run_until_record_fee(...)             # link6
+OrderWorkflow.run_until_record_audit()              # link7
+OrderWorkflow.run_until_order_lock()                # link8
+OrderWorkflow.run_until_invoice_apply()             # link9
+OrderWorkflow.run_until_supplier_advance()          # link10
+OrderWorkflow.run_until_fee_notice()                # link11
+OrderWorkflow.run_until_fee_confirm()               # link12
+OrderWorkflow.run_until_receive_account()           # link13
+OrderWorkflow.run_until_confirm_account()           # link14
+OrderWorkflow.run_until_invoice_batch()             # link15
+OrderWorkflow.run_until_invoice_batch_audit()      # link16
+OrderWorkflow.run_until_invoice_upload()            # link17
+OrderWorkflow.run_until_receive_writeoff()          # link18
+OrderWorkflow.run_until_payable_account()           # link19
+OrderWorkflow.run_until_confirm_payable()           # link20
+OrderWorkflow.run_until_payable_invoice_apply()     # link21
+OrderWorkflow.run_until_pay_demand()                # link23
+OrderWorkflow.run_until_pay_demand_audit()          # link24
+OrderWorkflow.run_until_pay_writeoff()              # link25
 ```
 
 ---
 
-## 分层架构
+## 安全提示
 
-| 层级 | 目录 | 职责 |
-|------|------|------|
-| API 层 | `api/` | 封装单个 HTTP 接口调用 |
-| 数据层 | `data/` | 提供测试数据；所有业务参数从 YAML 读取 |
-| 流程编排层 | `workflows/` | 串联多个 API，自动处理步骤间数据依赖 |
-| 测试用例层 | `testcases/` | 调用 workflows，按业务阶段组合测试 |
-
----
-
-## GUI 工具
-
-使用打包后的 `PRStudy.exe`（由 `GUI.py` 生成）可图形化运行：
-
-- 弹窗配置账号、链路、循环次数
-- 实时日志展示执行进度
-- 配置自动保存 / 回填
-
-打包命令：
-
-```bash
-pyinstaller --onefile --noconsole GUI.spec
-```
+- `.env` 文件包含敏感凭据，已加入 `.gitignore`
+- 生产部署请修改 `ADMIN_PASSWORD` 和 `SECRET_KEY`
+- 如仅内网使用，`TOKEN_EXPIRE_SECONDS` 可设为 `0`（永不过期）
+- 建议在 Nginx 前配置 HTTPS（Let's Encrypt）

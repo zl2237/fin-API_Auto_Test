@@ -21,6 +21,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 from pathlib import Path
 import uuid
+import os
 
 import yaml
 
@@ -145,16 +146,19 @@ class BookRealAmountData:
 
 def generate_bl_no(num) -> str:
     now = datetime.now()
-    # 优先读取 GUI 昵称作为提单号前缀
-    nickname_file = Path.cwd() / ".gui_nickname.txt"
-    prefix = "lele"
-    try:
-        if nickname_file.exists():
-            content = nickname_file.read_text(encoding="utf-8").strip()
-            if content:
-                prefix = content
-    except Exception:
-        pass
+    # 优先级：ORDER_PREFIX 环境变量 > .gui_nickname.txt > 默认 "lele"
+    prefix = os.getenv("ORDER_PREFIX", "")
+    if not prefix:
+        nickname_file = Path.cwd() / ".gui_nickname.txt"
+        try:
+            if nickname_file.exists():
+                content = nickname_file.read_text(encoding="utf-8").strip()
+                if content:
+                    prefix = content
+        except Exception:
+            pass
+        if not prefix:
+            prefix = "lele"
     return f"{prefix}_link{num}_{now.strftime('%Y%m%d%H%M%S')}"
 
 

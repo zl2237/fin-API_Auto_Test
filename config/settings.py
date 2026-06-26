@@ -61,3 +61,9 @@ ORDER_OPERATOR_CONFIG = {
     "create_id": os.getenv("ORDER_CREATE_ID", ""),
     "username": os.getenv("USERNAME", ""),
 }
+
+# 订单前缀
+ORDER_PREFIX = os.getenv("ORDER_PREFIX", "lele")
+
+# 循环次数
+LOOP_COUNT = int(os.getenv("LOOP_COUNT", "1"))
