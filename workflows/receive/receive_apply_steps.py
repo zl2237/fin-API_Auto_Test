@@ -303,6 +303,8 @@ def record_invoice_batch_audit(
             audit_type='invoiceBatchApplication',
             relation_id=batch_id,
             active_tab='examine_wait',
+            query_step_name='查询应收开票批次审批ID',
+            approve_step_name='审批通过应收开票批次',
         )
         result['approve_results'] = approve_results
 

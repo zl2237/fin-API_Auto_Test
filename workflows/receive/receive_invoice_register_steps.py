@@ -115,7 +115,7 @@ def record_invoice_upload(
     if invoice_number is None:
         invoice_number = InvoiceUploadApi.generate_unique_invoice_number(prefix="API_INV")
     if invoice_amount is None:
-        invoice_amount = "1500"
+        invoice_amount = cfg.get("_constants", {}).get("invoice_amount", "1500")
 
     invoice_original = {
         "file_id": file_id,

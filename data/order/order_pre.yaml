@@ -4,20 +4,20 @@
 
 # 基础字段：新增/分发/提交共用
 base_params:
-  client_expand_name: "荣洋"
-  client_expand_id: "16"
+  client_expand_name: "李永博"
+  client_expand_id: "368"
   m_delivery_type: ""
-  customer_id: "60934"
-  customer_name: ""
-  service_id: "40"
-  service_name: "李明丹tidb"
-  operator_id: "293"
-  operator_name: ""
+  customer_id: "885"
+  customer_name: "山东三义集团股份有限公司"
+  service_id: "337"
+  service_name: "王嘉辉"
+  operator_id: "337"
+  operator_name: "王嘉辉"
   customer_contact_id: ""
   customer_contact_name: ""
-  main_sort: "易航道-易汇联-青岛易汇航-上海一帜"
-  policy_id: "296905601001193472"
-  policy_name: "陆旭阳多主体服务策略-自动匹配"
+  main_sort: "易汇智-易航道"
+  policy_id: "112"
+  policy_name: "【SPV对客】易汇智"
   policy_type: "JSZX"
   service_items:
     - "booking_space"
@@ -64,7 +64,7 @@ base_params:
   customer_file_list: []
   remark: ""
   policy_type_name: ""
-  main_ids: "1,3,2,6"
+  main_ids: ",31,1,"
   action: "submit"
   entrust_status: 1
   order_file: []
@@ -103,12 +103,12 @@ submit_fields:
   consignee: "测试收货人"
   notifier: "测试通知人"
   customer_file_list:
-    - client_company_id: "60934"
-      client_company_name: "北京火山引擎科技有限公司"
-      trustee_company_id: "1"
-      trustee_company_name: "青岛易航道物流科技有限公司"
+    - client_company_id: "885"
+      client_company_name: "山东三义集团股份有限公司"
+      trustee_company_id: "31"
+      trustee_company_name: "青岛易汇智供应链管理有限公司"
       document_type: "BOOK_CUSTOMER"
-      file_url: "https://fnzxnfs-tidb.21eflag.com/resource/file/getFile?file_name=6a198b9b7953b.pdf&voucher=6a18e7981acf2"
+      file_url: "https://fnzxnfs-pre.21eflag.com/resource/file/getFile?file_name=6a198b9b7953b.pdf&voucher=6a18e7981acf2"
       file_name: "6a198b9b7953b.pdf"
       file_id: "116892"
       file_type: "pdf"
@@ -215,8 +215,8 @@ submit_fields:
   pay_status: "1"
   entrust_status: "2"
   is_traverse_name: "未推送"
-  policy_match: "auto"
-  policy_match_name: "自动匹配"
+  policy_match: "semi"
+  policy_match_name: "手动选择"
   real_discount_status_name: "—"
   expect_discount_status_name: "—"
   expect_policy_status_name: ""
@@ -254,15 +254,11 @@ submit_fields:
   policy_type_name: "结算业务"
   business_type_name: "海运整箱"
   policy_main_arr:
+    - fee_main_id: "31"
+      main_name: "青岛易汇智供应链管理有限公司"
     - fee_main_id: "1"
       main_name: "青岛易航道物流科技有限公司"
-    - fee_main_id: "3"
-      main_name: "青岛易汇联供应链管理有限公司"
-    - fee_main_id: "2"
-      main_name: "青岛易汇航供应链管理有限公司"
-    - fee_main_id: "6"
-      main_name: "上海一帜物流科技有限公司"
-  main_ids_name: "易航道,易汇联,青岛易汇航,上海一帜"
+  main_ids_name: "易汇智,易航道"
   order_sub_no: ""
 
 # 供应商模板
@@ -277,12 +273,12 @@ supplier_template:
     service_item_name: "订舱"
     settle_object_id: ""
     settlement_date: null
-    supplier_id: "61224"
-    supplier_name: "芜湖长信科技股份有限公司"
+    supplier_id: "215"
+    supplier_name: "青岛展鸿国际货运代理有限公司"
     supplier_pay_date: null
     supplier_period: null
-    user_id: "16"
-    user_name: "荣洋"
+    user_id: "522"
+    user_name: "董晓宇"
 
 # 箱型模板
 container_template:

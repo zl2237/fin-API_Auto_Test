@@ -45,8 +45,8 @@ _constants:
   sort_order_desc: "desc"
 
   # 主体名称（用于 financePutList / orderReceiveAccountEdit 的 main_name 和 customer_main_name）
-  customer_main_name: "青岛易航道物流科技有限公司"
-  main_name: "青岛易航道物流科技有限公司"
+  customer_main_name: "青岛易汇智供应链管理有限公司"
+  main_name: "青岛易汇智供应链管理有限公司"
 
 # ---------------------------------------------------------------------------
 # financePutList（查询应收款项列表）
@@ -61,7 +61,7 @@ finance_put_list:
   account_type: "2"
   customer_id: null
   # put_settle_object_id 由链路动态注入
-  main_id: "1"
+  main_id: "31"
   pay_settle_object_id: null
 
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ receive_account_edit:
   account_type: "2"
   customer_id: null
   # put_settle_object_id 由链路动态注入
-  main_id: "1"
+  main_id: "31"
   pay_settle_object_id: null
   # selection_time 由链路动态生成
   action: "submit"

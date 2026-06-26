@@ -1,7 +1,7 @@
 action: submit
 finance_ids:
-  - "318229667926507520_CustomerFinance"
-  - "318229667834232832_CustomerFinance"
+  - "328890322165694525_OrderFinance"
+  - "328890322320883773_OrderFinance"
 bank_ids:
-  - "10_MainBank"
-  - "11_MainBank"
+  - "80_MainBank"
+  - "79_MainBank"

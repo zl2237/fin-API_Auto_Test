@@ -24,8 +24,8 @@ _constants:
   identity_main: "main"
 
   # ============== invoiceAdd 字段（发票信息） ==============
-  # 发票金额（默认 1260，配合 _constants_for_add.currency=CNY）
-  invoice_amount: "1260"
+  # 发票金额（默认 4200，配合 _constants_for_add.currency=CNY）
+  invoice_amount: "4200"
 
   # 发票税额
   invoice_tax_amount: "0.00"
@@ -60,12 +60,12 @@ _constants_for_add:
 
 # 发票上传所需的企业信息（从测试数据中提取，稳定值）
 buyer:
-  chinese_header: "北京火山引擎科技有限公司"
-  identifier_no: "91110108MA01R70K8D"
+  chinese_header: "山东三义集团股份有限公司"
+  identifier_no: "91370700728595326A"
 
 seller:
-  chinese_header: "青岛易航道物流科技有限公司"
-  identifier_no: "91370202MABU30PK3F"
+  chinese_header: "青岛易汇智供应链管理有限公司"
+  identifier_no: "91370202MAEWF5RN7G"
 
 # 发票文件（支持上传真实文件或使用文件ID）
 # file_id / file_name / file_url / original_name 支持上传时真实传参

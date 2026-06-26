@@ -71,7 +71,7 @@ class BookRealAmountData:
         row = {
             "order_fee_real_id": None,
             "fee_type": int(config.get("fee_type", 0)),
-            "policy_sub_id": None,
+            "policy_sub_id": str(config.get("policy_sub_id", "")) if config.get("policy_sub_id") else None,
             "service_project": "booking_space",
             "cost_id": str(config["cost_id"]),
             "settle_object_id": str(config["settle_object_id"]),
