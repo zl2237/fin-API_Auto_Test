@@ -9,6 +9,7 @@
 
 API 层对应：api/pay/ 子包
 """
+from pathlib import Path
 from typing import Any, Dict, List
 
 import json
@@ -770,9 +771,8 @@ class PayableInvoiceUploadData:
         """
         返回应付发票文件的绝对路径，从 YAML 配置读取文件名拼接而来。
         """
-        import os as _os
-        _attachment_dir = _os.path.join(_os.path.dirname(__file__), "..", "attachment")
-        return _os.path.join(_attachment_dir, PIUP_INVOICE_FILENAME)
+        _attachment_dir = Path(__file__).resolve().parent.parent / "attachment"
+        return str(_attachment_dir / PIUP_INVOICE_FILENAME)
 
     @classmethod
     def build_invoice_add_payload(
