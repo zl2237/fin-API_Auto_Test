@@ -7,19 +7,12 @@
 ```
 platform/
 ├── backend/               # Flask 后端
-│   ├── run.py             # Flask 启动入口
-│   ├── requirements.txt   # Python 依赖
-│   ├── .env.example       # 平台环境变量示例
-│   └── app/               # 应用包
-│       ├── api/           # 路由：auth / environments / exec
-│       ├── core/          # config / db
-│       ├── models/
-│       ├── services/
-│       └── utils/
-├── frontend/              # Vue 3 前端（Vite + Element Plus）
+│   ├── server.py         # 启动入口
+│   ├── requirements.txt  # Python 依赖
+│   └── static/           # 前端构建产物（纯静态，无需 Node.js）
+├── frontend/             # Vue 3 前端（Vite + Element Plus）
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── index.html
 │   └── src/
 │       ├── api/           # axios 接口封装
 │       ├── views/         # 页面组件
@@ -32,96 +25,93 @@ platform/
 ## 环境要求
 
 - Python >= 3.10
-- Node.js >= 18
+- Node.js >= 18（仅构建时需要，构建后运行无需 Node.js）
 - Ubuntu 22.04+（生产部署）
 
-## 本地启动
+---
 
-### 1. 安装后端依赖
+## 首次部署（虚拟机 git pull 后）
 
-```bash
-cd platform/backend
-pip install -r requirements.txt
-```
+从 Git 拉取代码后，按以下步骤完成部署：
 
-### 2. 配置平台环境变量
+### 1. 修复项目目录权限
 
 ```bash
-cp platform/backend/.env.example platform/backend/.env
-# 编辑 .env，填入管理员账号和被测系统配置
-```
-
-### 3. 启动后端
-
-```bash
-cd platform/backend
-python run.py
-```
-
-服务运行在 `http://localhost:5000`。
-
-### 4. 启动前端（开发模式）
-
-```bash
-cd platform/frontend
-npm install
-npm run dev
-```
-
-访问 `http://localhost:3000`（Vite 开发服务器，API 代理到 `http://localhost:5000`）。
-
-## 生产部署（Ubuntu VM）
-
-### 前置条件
-
-- Ubuntu 22.04+，已安装 Python 3.10+、Node.js 18+
-- 开放 5000（Flask）端口；若加 Nginx 则还需开放 80
-
-### 步骤 1：上传项目
-
-```bash
-# 通过 scp / git clone 上传到 /opt/pr_study
 cd /opt/pr_study
-git clone http://172.16.18.55:88/root/pr_study.git  # 或 scp -r
+sudo chown -R $(whoami):$(whoami) /opt/pr_study
 ```
 
-### 步骤 2：安装后端依赖
+> 项目目录可能属于其他用户（如 www-data），必须改为当前用户，否则后续步骤会报权限错误。
+
+### 2. 创建并激活虚拟环境
 
 ```bash
-cd platform/backend
-python3 -m venv .venv
-source .venv/bin/activate
+cd /opt/pr_study
+sudo rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. 安装后端依赖
+
+```bash
+cd /opt/pr_study/platform/backend
 pip install -r requirements.txt
+
+# 安装 allure（pytest 报告用）
+pip install allure-pytest
+
+# 降级 pytest 到兼容版本
+pip install pytest==8.3.5
 ```
 
-### 步骤 3：构建前端
+### 4. 安装 Node.js（如未安装，仅构建时需要）
 
 ```bash
-cd platform/frontend
+# 检查是否已有
+node --version
+npm --version
+
+# 如没有，安装 Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### 5. 构建前端
+
+```bash
+cd /opt/pr_study/platform/frontend
 npm install
 npm run build
 ```
 
-### 步骤 4：复制前端产物到 backend/static
+### 6. 复制前端产物到 static 目录
 
 ```bash
-mkdir -p platform/backend/static
-cp -r platform/frontend/dist/* platform/backend/static/
+cd /opt/pr_study/platform
+cp -r frontend/dist/* backend/static/
 ```
 
-### 步骤 5：配置 Systemd
+### 7. 配置 Systemd 服务
+
+创建服务文件：
 
 ```bash
-# /etc/systemd/system/pr_study.service
+sudo nano /etc/systemd/system/pr_study.service
+```
+
+写入以下内容：
+
+```ini
 [Unit]
 Description=PR Study Platform
 After=network.target
 
 [Service]
-User=www-data
+User=lele
 WorkingDirectory=/opt/pr_study/platform/backend
-Environment="PATH=/opt/pr_study/platform/backend/.venv/bin"
-ExecStart=/opt/pr_study/platform/backend/.venv/bin/python run.py
+Environment="PATH=/opt/pr_study/venv/bin"
+ExecStart=/opt/pr_study/venv/bin/python server.py
 Restart=always
 RestartSec=5
 
@@ -129,98 +119,121 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
+> **注意**：`User` 必须与执行 git pull 的用户一致（如 `lele`），否则日志文件写入会报权限错误。
+
+启用并启动服务：
+
 ```bash
-systemctl daemon-reload
-systemctl enable --now pr_study
-journalctl -u pr_study -f  # 查看日志
+sudo systemctl daemon-reload
+sudo systemctl enable pr_study
+sudo systemctl start pr_study
+sudo systemctl status pr_study
 ```
 
-### 步骤 6：访问
+### 8. 访问平台
 
-浏览器打开 `http://172.16.18.55:90/`，使用 `admin / admin123` 登录。
-
-> 当前环境通过端口转发将虚拟机 5000 映射到主机 `172.16.18.55:90`，因此无需暴露虚拟机 IP。
+浏览器打开 `http://<虚拟机IP>:5000`
+端口转发：http://172.16.18.55:90/
 
 ---
 
-### 后续代码更新
+## 后续代码更新
 
-生产环境首次部署完成后，后续代码更新无需重复完整部署流程，按以下步骤增量更新即可：
+本地修改代码并 push 到 Git 后，在虚拟机执行以下步骤即可完成更新：
+
+### 标准更新流程
 
 ```bash
 cd /opt/pr_study
-git pull origin main
+git pull origin dev
+
+# 重启服务
+sudo systemctl restart pr_study
+sudo systemctl status pr_study
 ```
 
-```bash
-cd platform/backend
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+### 更新后验证
 
-```bash
-cd platform/frontend
-npm install
-npm run build
-```
-
-```bash
-mkdir -p platform/backend/static
-cp -r platform/frontend/dist/* platform/backend/static/
-```
-
-```bash
-systemctl restart pr_study
-journalctl -u pr_study -f  # 查看日志确认启动正常
-```
-
-> 若仅修改了 Python 代码、未变更前端或依赖，可省略前端构建和 `pip install`，直接 `git pull` 后重启服务即可。
+- 如果只改了 Python 代码 → 重启后即可
+- 如果改了 requirements.txt → 需重新安装依赖：
+  ```bash
+  source venv/bin/activate
+  pip install -r platform/backend/requirements.txt
+  sudo systemctl restart pr_study
+  ```
+- 如果改了前端代码 → 需重新构建：
+  ```bash
+  cd platform/frontend
+  npm install
+  npm run build
+  cp -r frontend/dist/* backend/static/
+  sudo systemctl restart pr_study
+  ```
 
 ---
 
-### 可选：使用 Nginx 反向代理（推荐用于生产）
+## 常见问题排查
 
-如果你希望统一域名/端口、做静态资源缓存、HTTPS 或负载均衡，可以在 Systemd 部署完成后继续加 Nginx。
+### 1. 浏览器运行测试报错 `PermissionError`
 
-#### Nginx 配置
-
-```bash
-# /etc/nginx/sites-available/pr_study
-server {
-    listen 80;
-    server_name <your-domain-or-ip>;
-
-    client_max_body_size 10M;
-
-    location / {
-        root /opt/pr_study/platform/backend/static;
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
+检查是否有多个 server.py 进程，且属于不同用户：
 
 ```bash
-ln -s /etc/nginx/sites-available/pr_study /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+ps aux | grep server.py
 ```
 
-启用 Nginx 后，可直接访问 `http://<your-ip>`。
+如果有 `www-data` 用户的旧进程，杀掉并重启：
+
+```bash
+sudo pkill -f "server.py"
+sudo systemctl restart pr_study
+```
+
+### 2. pytest 报错 `unrecognized arguments: --alluredir`
+
+pytest 版本太高，allure-pytest 不兼容。降级：
+
+```bash
+source venv/bin/activate
+pip install pytest==8.3.5
+```
+
+### 3. 配置文件找不到 `*.yaml`
+
+缺少 `.env` 文件或 `TEST_ENV` 未设置。Web 平台运行时不需要 `.env`（平台会自动传环境变量），命令行直接运行 pytest 才需要。
+
+### 4. 日志文件权限问题
+
+修复整个 report 目录权限：
+
+```bash
+sudo chown -R $(whoami):$(whoami) /opt/pr_study/report/
+chmod -R u+w /opt/pr_study/report/
+```
+
+### 5. 服务无法启动
+
+查看 systemd 日志：
+
+```bash
+sudo journalctl -u pr_study -f
+```
 
 ---
 
-## 平台默认账号
+## 服务管理命令
 
-| 账号  | 密码     |
-|-------|----------|
-| admin | admin123 |
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start pr_study` |
+| 停止服务 | `sudo systemctl stop pr_study` |
+| 重启服务 | `sudo systemctl restart pr_study` |
+| 查看状态 | `sudo systemctl status pr_study` |
+| 查看日志 | `sudo journalctl -u pr_study -f` |
+| 开机自启 | `sudo systemctl enable pr_study` |
+| 取消自启 | `sudo systemctl disable pr_study` |
 
-在 `platform/backend/.env` 中修改 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
+---
 
 ## 主要功能
 
