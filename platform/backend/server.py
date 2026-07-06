@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -8,6 +9,10 @@ from api.auth import bp as auth_bp
 from api.markers import bp as markers_bp
 from api.run import bp as run_bp
 from api.logs import bp as logs_bp
+from api.users import bp as users_bp
+
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(ENV_PATH, override=True)
 
 
 def create_app():
@@ -19,6 +24,7 @@ def create_app():
     app.register_blueprint(markers_bp)
     app.register_blueprint(run_bp)
     app.register_blueprint(logs_bp)
+    app.register_blueprint(users_bp)
 
     @app.route("/api/health")
     def health():

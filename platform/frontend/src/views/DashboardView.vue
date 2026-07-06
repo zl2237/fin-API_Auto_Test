@@ -73,6 +73,26 @@
         </el-alert>
       </div>
 
+      <!-- 流程选择 -->
+      <div class="sidebar-workflow">
+        <div class="workflow-title">流程选择</div>
+        <div class="workflow-options">
+          <div
+            v-for="item in formStore.workflowCards"
+            :key="item.key + item.label"
+            class="workflow-option"
+            :class="{ active: formStore.activeCard?.key === item.key }"
+            @click="formStore.setWorkflowCard(item.key)"
+          >
+            <div class="workflow-label">{{ item.label }}</div>
+            <el-tag v-if="item.tag" size="small" effect="plain"
+              :style="{ backgroundColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', borderColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', color: '#fff' }">
+              {{ item.tag }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+
       <!-- 配置卡片区 -->
       <div class="sidebar-configs">
         <!-- 环境配置 -->
@@ -161,7 +181,7 @@
                 @change="formStore.patch({ marker: formStore.data.marker })"
               >
                 <el-option
-                  v-for="item in markers"
+                  v-for="item in filteredMarkers"
                   :key="item.name"
                   :label="`${item.name} - ${item.description}`"
                   :value="item.name"
@@ -171,7 +191,7 @@
             <el-form-item label="提单号前缀">
               <el-input
                 v-model="formStore.data.order_prefix"
-                placeholder="如 lele"
+                placeholder="仅限字母、数字、下划线、短横线，不超过5位"
                 clearable
                 @change="formStore.patch({ order_prefix: formStore.data.order_prefix })"
               />
@@ -203,7 +223,7 @@
           <span class="execute-btn-content">
             <el-icon v-if="running" class="spin-icon"><Loading /></el-icon>
             <el-icon v-else><VideoPlay /></el-icon>
-            <span class="execute-btn-text">{{ running ? '执行中...' : '▶ 开始执行' }}</span>
+            <span class="execute-btn-text">{{ running ? '执行中...' : '开始执行' }}</span>
           </span>
         </button>
       </div>
@@ -331,6 +351,11 @@ const running = ref(false)
 const summary = computed(() => run.value.result?.summary || {})
 const failedCases = computed(() => summary.value.details?.failed || [])
 
+const filteredMarkers = computed(() => {
+  const allowed = formStore.activeCard?.markers ?? []
+  return markers.value.filter(item => allowed.includes(item.name))
+})
+
 function handleLogout() {
   auth.logout()
   router.push({ name: 'Login' })
@@ -355,6 +380,15 @@ async function handleRun() {
   }
   if (!formStore.data.marker) {
     ElMessage.warning('请选择运行链路')
+    return
+  }
+  const prefix = (formStore.data.order_prefix || '').trim()
+  if (/[^a-zA-Z0-9_-]/.test(prefix)) {
+    ElMessage.warning('提单号前缀仅限字母、数字、下划线和短横线')
+    return
+  }
+  if (prefix.length > 5) {
+    ElMessage.warning('提单号前缀不能超过5位')
     return
   }
 
@@ -613,6 +647,66 @@ onMounted(() => {
 .warning-text {
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* 流程选择 */
+.sidebar-workflow {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.workflow-title {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.workflow-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.workflow-option {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 10px 6px;
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 70px;
+  text-align: center;
+}
+.workflow-option:hover {
+  border-color: rgba(102,126,234,0.6);
+  background: rgba(102,126,234,0.15);
+}
+.workflow-option.active {
+  border-color: #667eea;
+  background: rgba(102,126,234,0.25);
+  box-shadow: 0 0 0 2px rgba(102,126,234,0.25);
+}
+.workflow-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+}
+:deep(.workflow-option .el-tag) {
+  font-size: 11px;
+}
+.tag-默认 {
+  background-color: #67c23a !important;
+  border-color: #67c23a !important;
+  color: #fff !important;
+}
+.tag-扩展 {
+  background-color: #e6a23c !important;
+  border-color: #e6a23c !important;
+  color: #fff !important;
 }
 
 /* 配置卡片区 */

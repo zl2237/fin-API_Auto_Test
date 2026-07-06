@@ -1,6 +1,6 @@
 # Web 测试平台
 
-基于 Vue 3 + Flask 的自动化测试执行平台，支持登录认证、环境管理、一键执行、实时日志和结果展示。
+基于 Vue 3 + Flask 的自动化测试执行平台，支持登录认证、环境管理、用户管理、流程选择、链路过滤、循环执行、一键执行、实时日志、执行结果汇总、执行历史。
 
 ## 项目结构
 
@@ -9,75 +9,109 @@ platform/
 ├── backend/               # Flask 后端
 │   ├── server.py         # 启动入口
 │   ├── requirements.txt  # Python 依赖
-│   └── static/           # 前端构建产物（纯静态，无需 Node.js）
+│   ├── .env.example      # 平台环境变量模板
+│   ├── api/              # 接口蓝图
+│   │   ├── auth.py       # 登录
+│   │   ├── markers.py    # pytest marker 列表
+│   │   ├── run.py        # 执行测试
+│   │   ├── logs.py       # 实时日志 SSE
+│   │   └── users.py      # 用户管理
+│   ├── services/         # 业务逻辑
+│   │   ├── auth.py       # 登录校验 / token
+│   │   ├── test_runner.py # 执行 pytest
+│   │   ├── db.py         # 数据层（基于 SQLite）
+│   │   └── users.py      # 用户 CRUD
+│   └── static/           # 前端构建产物
 ├── frontend/             # Vue 3 前端（Vite + Element Plus）
 │   ├── package.json
 │   ├── vite.config.js
-│   └── src/
-│       ├── api/           # axios 接口封装
-│       ├── views/         # 页面组件
-│       ├── components/    # 公共组件
-│       ├── stores/        # Pinia 状态管理
-│       └── utils/         # request 拦截器
+│   ├── src/
+│   │   ├── api/           # axios 接口封装
+│   │   ├── views/         # 页面组件
+│   │   ├── components/    # 公共组件
+│   │   ├── stores/        # Pinia 状态管理
+│   │   ├── utils/         # request 拦截器
+│   │   └── router/        # 路由
 └── README.md
 ```
+
+---
 
 ## 环境要求
 
 - Python >= 3.10
 - Node.js >= 18（仅构建时需要，构建后运行无需 Node.js）
+- Windows 开发：直接使用 `python run.py` 启动
 - Ubuntu 22.04+（生产部署）
 
 ---
 
-## 首次部署（虚拟机 git pull 后）
+## 本地开发启动
 
-从 Git 拉取代码后，按以下步骤完成部署：
+### 1. 配置后端环境变量
 
-### 1. 修复项目目录权限
+```bash
+cd platform/backend
+copy .env.example .env
+# 编辑 .env，确认管理员账号和端口
+```
+
+### 2. 安装后端依赖并启动
+
+```bash
+cd platform/backend
+pip install -r requirements.txt
+python run.py
+# 服务运行在 http://localhost:5000
+```
+
+### 3. 安装前端依赖并启动
+
+```bash
+cd platform/frontend
+npm install
+npm run dev
+# 访问 http://localhost:3000
+```
+
+---
+
+## 生产部署（虚拟机）
+
+### 1. 克隆并进入项目
 
 ```bash
 cd /opt/pr_study
+```
+
+### 2. 修复项目目录权限
+
+```bash
 sudo chown -R $(whoami):$(whoami) /opt/pr_study
 ```
 
-> 项目目录可能属于其他用户（如 www-data），必须改为当前用户，否则后续步骤会报权限错误。
-
-### 2. 创建并激活虚拟环境
+### 3. 创建并激活虚拟环境
 
 ```bash
-cd /opt/pr_study
-sudo rm -rf venv
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. 安装后端依赖
+### 4. 安装后端依赖
 
 ```bash
 cd /opt/pr_study/platform/backend
 pip install -r requirements.txt
-
-# 安装 allure（pytest 报告用）
-pip install allure-pytest
-
-# 降级 pytest 到兼容版本
-pip install pytest==8.3.5
 ```
 
-### 4. 安装 Node.js（如未安装，仅构建时需要）
+### 5. 安装 Node.js（如未安装，仅构建时需要）
 
 ```bash
-# 检查是否已有
-node --version
-npm --version
-
-# 如没有，安装 Node.js 18
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-### 5. 构建前端
+### 6. 构建前端
 
 ```bash
 cd /opt/pr_study/platform/frontend
@@ -85,7 +119,7 @@ npm install
 npm run build
 ```
 
-### 6. 复制前端产物到 static 目录
+### 7. 复制前端产物到 static 目录
 
 ```bash
 cd /opt/pr_study/platform
@@ -93,7 +127,7 @@ mkdir -p backend/static
 cp -r frontend/dist/* backend/static/
 ```
 
-### 7. 配置 Systemd 服务
+### 8. 配置 Systemd 服务
 
 创建服务文件：
 
@@ -116,8 +150,6 @@ WantedBy=multi-user.target
 EOF
 ```
 
-> **注意**：`User` 必须与执行 git pull 的用户一致（如 `lele`），否则日志文件写入会报权限错误。
-
 启用并启动服务：
 
 ```bash
@@ -127,7 +159,7 @@ sudo systemctl start pr_study
 sudo systemctl status pr_study
 ```
 
-### 8. 访问平台
+### 9. 访问平台
 
 浏览器打开 `http://<虚拟机IP>:5000`
 端口转发：http://172.16.18.55:90/
@@ -138,8 +170,6 @@ sudo systemctl status pr_study
 
 本地修改代码并 push 到 Git 后，在虚拟机执行以下步骤即可完成更新：
 
-### 标准更新流程
-
 ```bash
 cd /opt/pr_study
 git pull origin dev
@@ -149,23 +179,15 @@ sudo systemctl restart pr_study
 sudo systemctl status pr_study
 ```
 
-### 更新后验证
+如修改了前端代码，需重新构建并复制产物：
 
-- 如果只改了 Python 代码 → 重启后即可
-- 如果改了 requirements.txt → 需重新安装依赖：
-  ```bash
-  source venv/bin/activate
-  pip install -r platform/backend/requirements.txt
-  sudo systemctl restart pr_study
-  ```
-- 如果改了前端代码 → 需重新构建：
-  ```bash
-  cd platform/frontend
-  npm install
-  npm run build
-  cp -r frontend/dist/* backend/static/
-  sudo systemctl restart pr_study
-  ```
+```bash
+cd platform/frontend
+npm install
+npm run build
+cp -r frontend/dist/* backend/static/
+sudo systemctl restart pr_study
+```
 
 ---
 
@@ -179,36 +201,18 @@ sudo systemctl status pr_study
 ps aux | grep server.py
 ```
 
-如果有 `www-data` 用户的旧进程，杀掉并重启：
+如果有其他用户的旧进程，杀掉并重启：
 
 ```bash
 sudo pkill -f "server.py"
 sudo systemctl restart pr_study
 ```
 
-### 2. pytest 报错 `unrecognized arguments: --alluredir`
+### 2. 配置文件找不到 `*.yaml`
 
-pytest 版本太高，allure-pytest 不兼容。降级：
+Web 平台运行时不需要在项目根目录配置 `.env`（平台会自动传环境变量给 pytest）。只有命令行直接运行 pytest 时才需要根目录 `.env`。
 
-```bash
-source venv/bin/activate
-pip install pytest==8.3.5
-```
-
-### 3. 配置文件找不到 `*.yaml`
-
-缺少 `.env` 文件或 `TEST_ENV` 未设置。Web 平台运行时不需要 `.env`（平台会自动传环境变量），命令行直接运行 pytest 才需要。
-
-### 4. 日志文件权限问题
-
-修复整个 report 目录权限：
-
-```bash
-sudo chown -R $(whoami):$(whoami) /opt/pr_study/report/
-chmod -R u+w /opt/pr_study/report/
-```
-
-### 5. 服务无法启动
+### 3. 服务无法启动
 
 查看 systemd 日志：
 
@@ -238,7 +242,9 @@ sudo journalctl -u pr_study -f
 |------|------|
 | 登录认证 | 账号密码，会话级有效；错误时给出明确提示 |
 | 环境配置 | 通过 Web 页面管理被测系统环境 |
-| 链路选择 | 通过 pytest marker 筛选 link1 ~ link25 |
-| 循环执行 | 支持指定循环次数 |
+| 用户管理 | 管理员可管理平台账号（仅管理员可见） |
+| 链路选择 | 5 张流程选择卡片，自动过滤对应 marker 范围 |
+| 循环执行 | 支持指定循环次数（1~100） |
 | 实时日志 | SSE 流式推送 pytest 输出到前端，自动滚动 |
 | 结果汇总 | 通过 / 失败 / 跳过数量 + 失败用例详情 |
+| 执行历史 | 查看历史执行记录 |

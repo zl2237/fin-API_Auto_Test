@@ -420,7 +420,7 @@ class PayableInvoiceData:
             "page_no": page_no,
             "page_size": page_size,
             "bl_no": str(bl_no),
-            "bl_nos": [str(bl_no)],
+            "bl_nos": [],
             "main_id": str(resolved_main_id),
             "pay_settle_object_id": str(resolved_pay_settle_object_id),
             "pay_settle_object": str(resolved_pay_settle_object),

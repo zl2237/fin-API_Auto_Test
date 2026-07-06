@@ -8,7 +8,8 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData, generate_bl_no
+from data.order import BookRealAmountData
+from utils import generate_bl_no
 
 
 def _build_fee_config():
@@ -78,22 +79,22 @@ def _assert_fee_notice_ok(result):
 
 
 # =============================================================================
-# 链路11：新建...生成费用通知单
+# 链路11：生成费用通知单
 # =============================================================================
-@pytest.mark.link11
-class TestLink11GenerateFeeNotice:
-    """链路11：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批 → 生成费用通知单"""
+@pytest.mark.order11
+class TestOrder11GenerateFeeNotice:
+    """链路11：生成费用通知单"""
 
     @allure.feature("链路测试")
-    @allure.story("链路11：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批、供应商垫付申请审批、生成费用通知单")
+    @allure.story("链路11：生成费用通知单")
     @allure.severity("critical")
-    @allure.title("链路11：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批 → 生成费用通知单")
+    @allure.title("链路11：生成费用通知单")
     def test_link11_generate_fee_notice(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 生成费用通知单），链路停在 fee_notice 阶段"""
         bl_no = generate_bl_no(11)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批→供应商垫付申请审批→生成费用通知单）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='fee_notice',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],
@@ -164,22 +165,22 @@ class TestLink11GenerateFeeNotice:
 
 
 # =============================================================================
-# 链路12：新建...生成费用确认单
+# 链路12：生成费用确认单
 # =============================================================================
-@pytest.mark.link12
-class TestLink12GenerateFeeConfirm:
-    """链路12：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批 → 生成费用通知单 → 生成费用确认单"""
+@pytest.mark.order12
+class TestOrder12GenerateFeeConfirm:
+    """链路12：生成费用确认单"""
 
     @allure.feature("链路测试")
-    @allure.story("链路12：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批、供应商垫付申请审批、生成费用通知单、生成费用确认单")
+    @allure.story("链路12：生成费用确认单")
     @allure.severity("critical")
-    @allure.title("链路12：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批 → 生成费用通知单 → 生成费用确认单")
+    @allure.title("链路12：生成费用确认单")
     def test_link12_generate_fee_confirm(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 费用通知单 + 费用确认单），链路停在 fee_confirm 阶段"""
         bl_no = generate_bl_no(12)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批→供应商垫付申请审批→生成费用通知单→生成费用确认单）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='fee_confirm',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],

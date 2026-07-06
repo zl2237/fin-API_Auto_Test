@@ -33,16 +33,26 @@ const router = createRouter({
       component: () => import('@/views/PlaceholderView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/platform/users',
+      name: 'PlatformUserManage',
+      component: () => import('@/views/UserManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
   ],
 })
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('platform_token')
+  const role = localStorage.getItem('platform_role')
   const isLoggedIn = !!token
   if (to.meta.requiresAuth && !isLoggedIn) {
     return { name: 'Login' }
   }
   if (to.meta.guest && isLoggedIn) {
+    return { name: 'Home' }
+  }
+  if (to.meta.requiresAdmin && role !== 'admin') {
     return { name: 'Home' }
   }
 })

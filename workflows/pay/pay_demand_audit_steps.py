@@ -136,6 +136,8 @@ def audit_pay_demand(
                 approve_results.append({
                     'node_index': i,
                     'audit_id': audit_id,
+                    'approve_resp': audit_execute_resp,
+                    'approve_data': audit_execute_data,
                     'audit_execute_resp': audit_execute_resp,
                     'audit_execute_data': audit_execute_data,
                 })

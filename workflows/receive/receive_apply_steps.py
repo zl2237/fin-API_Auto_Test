@@ -67,7 +67,7 @@ def record_invoice_batch(
             'steps': [...],
         }
     """
-    result: Dict[str, Any] = {"bl_no": bl_no, "steps": []}
+    result: Dict[str, Any] = {"bl_no": bl_no, "steps": [], "main_id": main_id, "put_settle_object": put_settle_object}
 
     # Step 1: financePutList（开票模式）查询应收款项
     with allure.step('查询应收款项列表（financePutList 开票模式）'):
@@ -127,6 +127,15 @@ def record_invoice_batch(
 
     if not real_fee_ids:
         raise AssertionError(f'financePutList 响应中 amount_list 为空，无法发起应收开票批次: {put_list_data}')
+
+    result['order_info_records'] = [
+        {
+            'order_fee_real_id': item.get('order_fee_real_id'),
+            'book_customer_id': item.get('book_customer_id'),
+            'real_amount': item.get('real_amount'),
+        }
+        for item in amount_list
+    ]
 
     with allure.step('获取开票方信息（getSellInfo）'):
         sell_info_resp = InvoiceBatchApi.get_sell_info(

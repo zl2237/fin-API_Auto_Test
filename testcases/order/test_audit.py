@@ -1,16 +1,17 @@
 """
 链路测试 - 审批（link7~10）
 
-  link7  - 资产推送审批（录费用后自动执行）
-  link8  - 订单锁定审批
-  link9  - 未放款开票申请审批
+  link7 - 资产推送审批（录费用后自动执行）
+  link8 - 订单锁定审批
+  link9 - 未放款开票申请审批
   link10 - 供应商垫付申请审批
 """
 import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData, generate_bl_no
+from data.order import BookRealAmountData
+from utils import generate_bl_no
 
 
 def _build_fee_config():
@@ -53,14 +54,14 @@ def _assert_order_lock_ok(result):
 
 
 # =============================================================================
-# 链路7：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批
+# 链路7：资产推送审批
 # =============================================================================
-@pytest.mark.link7
-class TestLink7RecordAudit:
+@pytest.mark.order7
+class TestOrder7RecordAudit:
     """链路7：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批"""
 
     @allure.feature("链路测试")
-    @allure.story("链路7：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批")
+    @allure.story("链路7：资产推送审批")
     @allure.severity("critical")
     @allure.title("链路7：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批")
     def test_link7_record_audit(self):
@@ -68,7 +69,7 @@ class TestLink7RecordAudit:
         bl_no = generate_bl_no(7)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='record_audit',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],
@@ -98,14 +99,14 @@ class TestLink7RecordAudit:
 
 
 # =============================================================================
-# 链路8：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批
+# 链路8：订单锁定审批
 # =============================================================================
-@pytest.mark.link8
-class TestLink8OrderLock:
+@pytest.mark.order8
+class TestOrder8OrderLock:
     """链路8：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批"""
 
     @allure.feature("链路测试")
-    @allure.story("链路8：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批")
+    @allure.story("链路8：订单锁定审批")
     @allure.severity("critical")
     @allure.title("链路8：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批")
     def test_link8_order_lock(self):
@@ -113,7 +114,7 @@ class TestLink8OrderLock:
         bl_no = generate_bl_no(8)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='order_lock',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],
@@ -150,14 +151,14 @@ class TestLink8OrderLock:
 
 
 # =============================================================================
-# 链路9：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批
+# 链路9：未放款开票申请审批
 # =============================================================================
-@pytest.mark.link9
-class TestLink9InvoiceApply:
+@pytest.mark.order9
+class TestOrder9InvoiceApply:
     """链路9：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批"""
 
     @allure.feature("链路测试")
-    @allure.story("链路9：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批")
+    @allure.story("链路9：未放款开票申请审批")
     @allure.severity("critical")
     @allure.title("链路9：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批")
     def test_link9_invoice_apply(self):
@@ -165,7 +166,7 @@ class TestLink9InvoiceApply:
         bl_no = generate_bl_no(9)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='invoice_apply',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],
@@ -214,14 +215,14 @@ class TestLink9InvoiceApply:
 
 
 # =============================================================================
-# 链路10：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批、供应商垫付申请审批
+# 链路10：供应商垫付申请审批
 # =============================================================================
-@pytest.mark.link10
-class TestLink10SupplierAdvance:
+@pytest.mark.order10
+class TestOrder10SupplierAdvance:
     """链路10：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批"""
 
     @allure.feature("链路测试")
-    @allure.story("链路10：新建、分发、查询、暂存、提交、生成子订单、录费用、资产推送审批、订单锁定审批、未放款开票申请审批、供应商垫付申请审批")
+    @allure.story("链路10：供应商垫付申请审批")
     @allure.severity("critical")
     @allure.title("链路10：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批")
     def test_link10_supplier_advance(self):
@@ -229,7 +230,7 @@ class TestLink10SupplierAdvance:
         bl_no = generate_bl_no(10)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批→供应商垫付申请审批）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='supplier_advance',
                 bl_no=bl_no,
                 fee_configs=[_build_fee_config()],

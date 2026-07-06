@@ -55,6 +55,10 @@
             <span>审批流配置</span>
           </el-menu-item>
         </el-sub-menu>
+        <el-menu-item v-if="auth.isAdmin" index="/platform/users">
+          <el-icon><User /></el-icon>
+          <template #title>用户管理</template>
+        </el-menu-item>
       </el-menu>
     </aside>
 
@@ -68,18 +72,20 @@
 
         <section class="manual-section">
           <h2>项目简介</h2>
-          <p>基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 25 条链路。</p>
-          <p>25 条链路按依赖顺序递增，链路 25 隐含链路 1~24 的全部步骤。配置与代码分离，所有业务参数均存储在 YAML，通过 <code>TEST_ENV</code> 切换环境。</p>
+          <p>基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 38 条链路。</p>
+          <p>38 条链路按依赖顺序递增，链路 13/25 是两类扩展流程的共同前置。配置与代码分离，所有业务参数均存储在 YAML，通过 <code>TEST_ENV</code> 切换环境。</p>
         </section>
 
         <section class="manual-section">
           <h2>核心能力</h2>
           <ul>
-            <li>25 条链路（link1~link25），按依赖顺序递增，link25 隐含 link1~link24</li>
+            <li>38 条链路，覆盖订单、应付、应收全流程</li>
             <li>workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）</li>
             <li>所有业务配置参数集中存储于 YAML，Python 代码零硬编码</li>
-            <li>Web 平台：环境管理、一键执行、实时日志、执行历史</li>
+            <li>Web 平台：5 张流程选择卡片、环境管理、链路过滤、循环执行、一键执行、实时日志、执行历史、用户管理</li>
+            <li>data 层按环境自动加载 <code>*_tidb.yaml</code> 或 <code>*_pre.yaml</code>，通过 <code>.env</code> 中的 <code>TEST_ENV</code> 切换</li>
             <li>CI 环境自动企微机器人通知</li>
+            <li>Allure 报告</li>
           </ul>
         </section>
 
@@ -109,9 +115,9 @@
 │   ├── receive/            # 应收对账、开票、核销
 │   └── pay/                # 应付对账、开票、付款需求、核销
 ├── testcases/              # pytest 用例
-│   ├── order/              # 链路 1~12
-│   ├── receive/            # 链路 13~18
-│   └── pay/                # 链路 19~25
+│   ├── order/              # order1~12（仅订单基础步骤）
+│   ├── pay_receive/        # order_pay_receive1~13（订单→应付→应收）
+│   └── receive_pay/        # order_receive_pay1~13（订单→应收→应付）
 ├── workflows/              # 流程编排
 │   ├── order/              # 订单域步骤
 │   ├── receive/            # 应收域步骤
@@ -165,9 +171,11 @@ npm run dev
 cd platform/frontend
 npm run build
 
-# 2. 将构建产物复制到 backend/static
-#    Windows (PowerShell):
-#    Copy-Item -Recurse dist\* ..\backend\app\static\
+# 2. 将构建产物复制到 platform/backend/static
+# Linux / macOS
+cp -r platform/frontend/dist/* platform/backend/static/
+# Windows (PowerShell)
+Copy-Item -Recurse platform/frontend/dist/* platform/backend/static/
 
 # 3. 启动 Flask（同时服务 API + 静态页面）
 cd platform/backend
@@ -192,8 +200,9 @@ python run.py</pre>
 
           <h3>3. 发起测试</h3>
           <ol>
+            <li>选择流程卡片</li>
             <li>选择环境</li>
-            <li>勾选要执行的链路（可多选，如 link1~link25）</li>
+            <li>选择运行链路</li>
             <li>设置循环次数（1~100）</li>
             <li>（可选）输入费用配置 JSON</li>
             <li>点击「开始执行」</li>
@@ -219,20 +228,21 @@ cp .env.example .env
 
 # 运行
 pytest -v                          # 全部
-pytest -m link1                    # 仅链路1
-pytest -m "link11 or link12"       # 多条链路
-pytest -m link25                   # 全流程</pre>
+pytest -m order1                   # 仅订单链路1
+pytest -m "order_pay_receive1 or order_pay_receive8"       # 多条链路
+pytest -m order_pay_receive13      # 订单+应付+应收全流程
+pytest -m order_receive_pay13      # 订单+应收+应付全流程</pre>
         </section>
 
         <section class="manual-section">
-          <h2>链路一览（25 条）</h2>
+          <h2>链路一览（38 条）</h2>
           <el-table :data="linkTable" stripe size="small" style="width: 100%">
-            <el-table-column prop="link" label="链路" width="100" />
+            <el-table-column prop="link" label="链路" width="120" />
             <el-table-column prop="stage" label="停止阶段" />
-            <el-table-column prop="link2" label="链路" width="100" />
+            <el-table-column prop="link2" label="链路" width="120" />
             <el-table-column prop="stage2" label="停止阶段" />
           </el-table>
-          <p class="manual-note">链路按依赖顺序递增，link25 隐含 link1~link24 的全部步骤。</p>
+          <p class="manual-note">实际链路命名：<code>order1~order12</code>、<code>order_pay_receive1~order_pay_receive13</code>、<code>order_receive_pay1~order_receive_pay13</code>。</p>
         </section>
 
         <section class="manual-section">
@@ -240,28 +250,28 @@ pytest -m link25                   # 全流程</pre>
           <p>OrderWorkflow 提供 run_until_xxx 系列方法：</p>
           <pre class="code-block">from workflows.order_workflow import OrderWorkflow
 
-OrderWorkflow.run_until_distribute()                # link2
-OrderWorkflow.run_until_stash()                    # link3
-OrderWorkflow.run_until_generate_sub_order()        # link5
-OrderWorkflow.run_until_record_fee(...)             # link6
-OrderWorkflow.run_until_record_audit()              # link7
-OrderWorkflow.run_until_order_lock()                # link8
-OrderWorkflow.run_until_invoice_apply()             # link9
-OrderWorkflow.run_until_supplier_advance()          # link10
-OrderWorkflow.run_until_fee_notice()                # link11
-OrderWorkflow.run_until_fee_confirm()               # link12
-OrderWorkflow.run_until_receive_account()           # link13
-OrderWorkflow.run_until_confirm_account()           # link14
-OrderWorkflow.run_until_invoice_batch()             # link15
-OrderWorkflow.run_until_invoice_batch_audit()      # link16
-OrderWorkflow.run_until_invoice_upload()            # link17
-OrderWorkflow.run_until_receive_writeoff()          # link18
-OrderWorkflow.run_until_payable_account()           # link19
-OrderWorkflow.run_until_confirm_payable()           # link20
-OrderWorkflow.run_until_payable_invoice_apply()     # link21
-OrderWorkflow.run_until_pay_demand()                # link23
-OrderWorkflow.run_until_pay_demand_audit()          # link24
-OrderWorkflow.run_until_pay_writeoff()              # link25</pre>
+OrderWorkflow.run_until_distribute()                # order2
+OrderWorkflow.run_until_stash()                    # order3
+OrderWorkflow.run_until_generate_sub_order()        # order5
+OrderWorkflow.run_until_record_fee(...)             # order6
+OrderWorkflow.run_until_record_audit()              # order7
+OrderWorkflow.run_until_order_lock()                # order8
+OrderWorkflow.run_until_invoice_apply()             # order9
+OrderWorkflow.run_until_supplier_advance()          # order10
+OrderWorkflow.run_until_fee_notice()                # order11
+OrderWorkflow.run_until_fee_confirm()               # order12
+OrderWorkflow.run_until_receive_account()           # order13
+OrderWorkflow.run_until_confirm_account()           # order14
+OrderWorkflow.run_until_invoice_batch()             # order15
+OrderWorkflow.run_until_invoice_batch_audit()      # order16
+OrderWorkflow.run_until_invoice_upload()            # order17
+OrderWorkflow.run_until_receive_writeoff()          # order18
+OrderWorkflow.run_until_payable_account()           # order19
+OrderWorkflow.run_until_confirm_payable()           # order20
+OrderWorkflow.run_until_payable_invoice_apply()     # order21
+OrderWorkflow.run_until_pay_demand()                # order23
+OrderWorkflow.run_until_pay_demand_audit()          # order24
+OrderWorkflow.run_until_pay_writeoff()              # order25</pre>
         </section>
 
         <section class="manual-section">
@@ -283,7 +293,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  Expand, Fold, SwitchButton, Files, EditPen, Connection, HomeFilled
+  Expand, Fold, SwitchButton, Files, EditPen, Connection, HomeFilled, User
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -311,19 +321,26 @@ const envFields = [
 ]
 
 const linkTable = [
-  { link: 'link1', stage: '新建', link2: 'link14', stage2: '确认应收对账' },
-  { link: 'link2', stage: '分发', link2: 'link15', stage2: '发起应收开票批次审批' },
-  { link: 'link3', stage: '暂存', link2: 'link16', stage2: '审核生成开票申请' },
-  { link: 'link4', stage: '提交', link2: 'link17', stage2: '发票上传与登记' },
-  { link: 'link5', stage: '生成子订单', link2: 'link18', stage2: '应收核销' },
-  { link: 'link6', stage: '录费用', link2: 'link19', stage2: '发起应付对账批次' },
-  { link: 'link7', stage: '资产推送审批', link2: 'link20', stage2: '确认应付对账' },
-  { link: 'link8', stage: '订单锁定审批', link2: 'link21', stage2: '发起应付开票批次申请' },
-  { link: 'link9', stage: '未放款开票申请审批', link2: 'link22', stage2: '应付发票上传与登记' },
-  { link: 'link10', stage: '供应商垫付申请审批', link2: 'link23', stage2: '发起付款需求' },
-  { link: 'link11', stage: '生成费用通知单', link2: 'link24', stage2: '审核生成付款单' },
-  { link: 'link12', stage: '生成费用确认单', link2: 'link25', stage2: '付款单核销' },
-  { link: 'link13', stage: '发起应收对账批次', link2: '', stage2: '' },
+  { link: 'order1', stage: '新建', link2: 'order_pay_receive1', stage2: '发起应付对账批次' },
+  { link: 'order2', stage: '分发', link2: 'order_pay_receive2', stage2: '确认应付对账' },
+  { link: 'order3', stage: '暂存', link2: 'order_pay_receive3', stage2: '发起应付开票批次申请' },
+  { link: 'order4', stage: '提交', link2: 'order_pay_receive4', stage2: '应付发票上传与登记' },
+  { link: 'order5', stage: '生成子订单', link2: 'order_pay_receive5', stage2: '发起付款需求' },
+  { link: 'order6', stage: '录费用', link2: 'order_pay_receive6', stage2: '审核生成付款单' },
+  { link: 'order7', stage: '资产推送审批', link2: 'order_pay_receive7', stage2: '付款单核销' },
+  { link: 'order8', stage: '订单锁定审批', link2: 'order_pay_receive8', stage2: '发起应收对账批次' },
+  { link: 'order9', stage: '未放款开票申请审批', link2: 'order_pay_receive9', stage2: '确认应收对账' },
+  { link: 'order10', stage: '供应商垫付申请审批', link2: 'order_pay_receive10', stage2: '发起应收开票批次审批' },
+  { link: 'order11', stage: '生成费用通知单', link2: 'order_pay_receive11', stage2: '审核生成开票申请' },
+  { link: 'order12', stage: '生成费用确认单', link2: 'order_pay_receive12', stage2: '发票上传与登记' },
+  { link: 'order_pay_receive13', stage: '应收核销', link2: 'order_receive_pay1', stage2: '发起应收对账批次' },
+  { link: 'order_receive_pay2', stage: '确认应收对账', link2: 'order_receive_pay3', stage2: '发起应收开票批次审批' },
+  { link: 'order_receive_pay4', stage: '审核生成开票申请', link2: 'order_receive_pay5', stage2: '发票上传与登记' },
+  { link: 'order_receive_pay6', stage: '应收核销', link2: 'order_receive_pay7', stage2: '发起应付对账批次' },
+  { link: 'order_receive_pay8', stage: '确认应付对账', link2: 'order_receive_pay9', stage2: '发起应付开票批次申请' },
+  { link: 'order_receive_pay10', stage: '应付发票上传与登记', link2: 'order_receive_pay11', stage2: '发起付款需求' },
+  { link: 'order_receive_pay12', stage: '审核生成付款单', link2: 'order_receive_pay13', stage2: '付款单核销' },
+  { link: '', stage: '', link2: '', stage2: '' },
 ]
 
 function handleLogout() {

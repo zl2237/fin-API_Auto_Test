@@ -1,36 +1,36 @@
 """
 链路测试 - 订单基础（link1~5）
 
-  link1  - 新建
-  link2  - 新建、分发
-  link3  - 新建、分发、查询、暂存
-  link4  - 新建、分发、查询、暂存、提交
-  link5  - 新建、分发、查询、暂存、提交、生成子订单
+  link1 - 新建
+  link2 - 分发
+  link3 - 暂存
+  link4 - 提交
+  link5 - 生成子订单
 """
 import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import generate_bl_no
+from utils import generate_bl_no
 
 
 # =============================================================================
 # 链路1：新建
 # =============================================================================
-@pytest.mark.link1
-class TestLink1Create:
-    """链路1：仅新建订单"""
+@pytest.mark.order1
+class TestOrder1Create:
+    """链路1：新建"""
 
     @allure.feature("链路测试")
     @allure.story("链路1：新建")
     @allure.severity("critical")
-    @allure.title("链路1：仅新建订单")
+    @allure.title("链路1：新建")
     def test_link1_create(self):
         """验证：新建订单成功，API 返回 code=200"""
         bl_no = generate_bl_no(1)
 
         with allure.step("执行新建"):
-            result = OrderWorkflow.full_flow(stop_at="create", bl_no=bl_no)
+            result = OrderWorkflow.run(stop_at="create", bl_no=bl_no)
 
         with allure.step("断言：新建成功"):
             assert result["create_data"]["code"] == 200, \
@@ -49,14 +49,14 @@ class TestLink1Create:
 
 
 # =============================================================================
-# 链路2：新建、分发
+# 链路2：分发
 # =============================================================================
-@pytest.mark.link2
-class TestLink2CreateAndDistribute:
+@pytest.mark.order2
+class TestOrder2CreateAndDistribute:
     """链路2：新建 → 分发"""
 
     @allure.feature("链路测试")
-    @allure.story("链路2：新建、分发")
+    @allure.story("链路2：分发")
     @allure.severity("critical")
     @allure.title("链路2：新建 → 分发")
     def test_link2_create_and_distribute(self):
@@ -64,7 +64,7 @@ class TestLink2CreateAndDistribute:
         bl_no = generate_bl_no(2)
 
         with allure.step("执行新建+分发"):
-            result = OrderWorkflow.full_flow(stop_at="distribute", bl_no=bl_no)
+            result = OrderWorkflow.run(stop_at="distribute", bl_no=bl_no)
 
         with allure.step("断言：新建成功"):
             assert result["create_data"]["code"] == 200, \
@@ -89,14 +89,14 @@ class TestLink2CreateAndDistribute:
 
 
 # =============================================================================
-# 链路3：新建、分发、查询、暂存
+# 链路3：暂存
 # =============================================================================
-@pytest.mark.link3
-class TestLink3Stash:
+@pytest.mark.order3
+class TestOrder3Stash:
     """链路3：新建 → 分发 → 查询 → 暂存"""
 
     @allure.feature("链路测试")
-    @allure.story("链路3：新建、分发、查询、暂存")
+    @allure.story("链路3：暂存")
     @allure.severity("critical")
     @allure.title("链路3：新建 → 分发 → 查询 → 暂存")
     def test_link3_create_distribute_query_stash(self):
@@ -104,7 +104,7 @@ class TestLink3Stash:
         bl_no = generate_bl_no(3)
 
         with allure.step("执行新建+分发+查询+暂存"):
-            result = OrderWorkflow.full_flow(stop_at="stash", bl_no=bl_no)
+            result = OrderWorkflow.run(stop_at="stash", bl_no=bl_no)
 
         with allure.step("断言：新建成功"):
             assert result["create_data"]["code"] == 200, \
@@ -132,14 +132,14 @@ class TestLink3Stash:
 
 
 # =============================================================================
-# 链路4：新建、分发、查询、暂存、提交（完整链路）
+# 链路4：提交（完整链路）
 # =============================================================================
-@pytest.mark.link4
-class TestLink4FullWithStash:
+@pytest.mark.order4
+class TestOrder4FullWithStash:
     """链路4：新建 → 分发 → 查询 → 暂存 → 提交"""
 
     @allure.feature("链路测试")
-    @allure.story("链路4：新建、分发、查询、暂存、提交")
+    @allure.story("链路4：提交")
     @allure.severity("critical")
     @allure.title("链路4：新建 → 分发 → 查询 → 暂存 → 提交")
     def test_link4_full_with_stash(self):
@@ -147,7 +147,7 @@ class TestLink4FullWithStash:
         bl_no = generate_bl_no(4)
 
         with allure.step("执行链路（新建→分发→查询→暂存→提交）"):
-            result = OrderWorkflow.full_flow(stop_at="submit", skip_stash=False, bl_no=bl_no)
+            result = OrderWorkflow.run(stop_at="submit", skip_stash=False, bl_no=bl_no)
 
         with allure.step("断言：新建成功"):
             assert result["create_data"]["code"] == 200, \
@@ -201,14 +201,14 @@ class TestLink4FullWithStash:
 
 
 # =============================================================================
-# 链路5：新建、分发、查询、暂存、提交、生成子订单
+# 链路5：生成子订单
 # =============================================================================
-@pytest.mark.link5
-class TestLink5GenerateSubOrder:
+@pytest.mark.order5
+class TestOrder5GenerateSubOrder:
     """链路5：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单"""
 
     @allure.feature("链路测试")
-    @allure.story("链路5：新建、分发、查询、暂存、提交、生成子订单")
+    @allure.story("链路5：生成子订单")
     @allure.severity("critical")
     @allure.title("链路5：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单")
     def test_link5_generate_sub_order(self):
@@ -216,7 +216,7 @@ class TestLink5GenerateSubOrder:
         bl_no = generate_bl_no(5)
 
         with allure.step("执行链路（新建→分发→查询→暂存→提交→生成子订单）"):
-            result = OrderWorkflow.full_flow(stop_at="generate_sub_order", bl_no=bl_no)
+            result = OrderWorkflow.run(stop_at="generate_sub_order", bl_no=bl_no)
 
         with allure.step("断言：新建成功"):
             assert result["create_data"]["code"] == 200, \

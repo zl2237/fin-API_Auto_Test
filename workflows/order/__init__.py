@@ -12,7 +12,7 @@
 - receive_invoice_register_steps 发票登记：record_invoice_upload
 - receive_writeoff_steps    核销：    record_receive_writeoff
 
-主文件 workflows/order_workflow.py 保留 _attach_context / full_flow / run / run_until_xxx
+主文件 workflows/order_workflow.py 保留 _attach_context / run / run_until_xxx
 作为编排门面，对外 API 不变。
 
 历史说明：原 workflows/steps/ 已重命名为 workflows/order/（"steps" 太通用，

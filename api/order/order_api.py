@@ -13,8 +13,8 @@ from data.order import (
     BookRealAmountData,
     FeeNoticeData,
     FeeConfirmData,
-    generate_bl_no
 )
+from utils import generate_bl_no
 from config.settings import ORDER_OPERATOR_CONFIG
 
 

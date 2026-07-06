@@ -12,6 +12,7 @@ import allure
 
 from api.pay.pay_invoice_register_api import PayInvoiceRegisterApi
 from data.pay import PayableInvoiceUploadData, _UPLOAD_CFG
+from utils.generate import generate_invoice_no
 
 
 def record_payable_invoice_upload(
@@ -90,7 +91,7 @@ def record_payable_invoice_upload(
 
     # Step 2: invoiceAdd - 登记应付发票
     if invoice_number is None:
-        invoice_number = _generate_unique_invoice_number(prefix="PAY_INV")
+        invoice_number = generate_invoice_no("AP")
     if invoice_amount is None:
         invoice_amount = _UPLOAD_CFG.get("_constants", {}).get("invoice_amount", "1260")
 
@@ -203,13 +204,3 @@ def record_payable_invoice_upload(
         )
 
     return result
-
-
-def _generate_unique_invoice_number(prefix: str = "INV") -> str:
-    """生成唯一发票号码：前缀 + 时间戳毫秒 + 4 位随机数"""
-    import time as _time
-    import random as _random
-
-    ts = int(_time.time() * 1000) % 100000000
-    rand = _random.randint(0, 9999)
-    return f"{prefix}{ts}{rand:04d}"

@@ -10,7 +10,6 @@ API 层 - 应收发票上传与登记接口封装
 """
 import os
 import time
-import uuid
 from typing import Any, Dict, List
 
 from core.http_client import http
@@ -282,10 +281,3 @@ class InvoiceUploadApi:
             "action": action,
         }
         return http.post(cls.ALLOCATION_INVOICE_FEE_URL, json=payload)
-
-    @classmethod
-    def generate_unique_invoice_number(cls, prefix: str = "API_INV") -> str:
-        """生成唯一发票号码"""
-        ts = time.strftime("%Y%m%d%H%M%S")
-        rand = uuid.uuid4().hex[:6].upper()
-        return f"{prefix}_{ts}{rand}"

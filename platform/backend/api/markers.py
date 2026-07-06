@@ -1,36 +1,95 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
-MARKERS = [
-    {"name": "link1", "description": "链路1：新建"},
-    {"name": "link2", "description": "链路2：新建、分发"},
-    {"name": "link3", "description": "链路3：新建、分发、查询、暂存"},
-    {"name": "link4", "description": "链路4：新建、分发、查询、暂存、提交"},
-    {"name": "link5", "description": "链路5：新建、分发、查询、暂存、提交、生成子订单"},
-    {"name": "link6", "description": "链路6：新建…生成子订单、录费用"},
-    {"name": "link7", "description": "链路7：新建…录费用、资产推送审批"},
-    {"name": "link8", "description": "链路8：新建…资产推送审批、订单锁定审批"},
-    {"name": "link9", "description": "链路9：新建…订单锁定审批、未放款开票申请审批"},
-    {"name": "link10", "description": "链路10：新建…未放款开票申请审批、供应商垫付申请审批"},
-    {"name": "link11", "description": "链路11：新建…供应商垫付申请审批、生成费用通知单"},
-    {"name": "link12", "description": "链路12：新建…生成费用通知单、生成费用确认单"},
-    {"name": "link13", "description": "链路13：新建…生成费用确认单、发起应收对账批次"},
-    {"name": "link14", "description": "链路14：新建…发起应收对账批次、确认应收对账"},
-    {"name": "link15", "description": "链路15：新建…确认应收对账、发起应收开票批次审批"},
-    {"name": "link16", "description": "链路16：新建…发起应收开票批次审批、审核生成开票申请"},
-    {"name": "link17", "description": "链路17：新建…审核生成开票申请、发票上传与登记"},
-    {"name": "link18", "description": "链路18：新建…发票上传与登记、应收核销"},
-    {"name": "link19", "description": "链路19：新建…应收核销、发起应付对账批次"},
-    {"name": "link20", "description": "链路20：新建…发起应付对账批次、确认应付对账"},
-    {"name": "link21", "description": "链路21：新建…确认应付对账、发起应付开票批次申请"},
-    {"name": "link22", "description": "链路22：新建…发起应付开票批次申请、应付发票上传与登记"},
-    {"name": "link23", "description": "链路23：新建…应付发票上传与登记、发起付款需求"},
-    {"name": "link24", "description": "链路24：新建…发起付款需求、审核生成付款单"},
-    {"name": "link25", "description": "链路25：新建…审核生成付款单、付款单核销"},
-]
+
+# ---------------------------------------------------------------------------
+# 辅助函数：必须在 WORKFLOW_MARKERS 构造之前定义
+# ---------------------------------------------------------------------------
+
+def _order_label(index: int) -> str:
+    labels = {
+        1: "新建", 2: "分发", 3: "暂存", 4: "提交",
+        5: "生成子订单", 6: "录费用", 7: "资产推送审批",
+        8: "订单锁定审批", 9: "未放款开票申请审批",
+        10: "供应商垫付申请审批", 11: "生成费用通知单", 12: "生成费用确认单",
+    }
+    return labels.get(index, f"订单阶段{index}")
+
+
+def _pay_receive_label(index: int) -> str:
+    if 1 <= index <= 7:
+        labels = {
+            1: "发起应付对账批次", 2: "确认应付对账",
+            3: "发起应付开票批次申请", 4: "应付发票上传与登记",
+            5: "发起付款需求", 6: "审核生成付款单", 7: "付款单核销",
+        }
+        return labels.get(index, f"应付阶段{index}")
+    if 8 <= index <= 13:
+        labels = {
+            8: "发起应收对账批次", 9: "确认应收对账",
+            10: "发起应收开票批次审批", 11: "审核生成开票申请",
+            12: "发票上传与登记", 13: "应收核销",
+        }
+        return labels.get(index, f"应收阶段{index}")
+    return f"链路{index}"
+
+
+def _receive_pay_label(index: int) -> str:
+    if 1 <= index <= 6:
+        labels = {
+            1: "发起应收对账批次", 2: "确认应收对账",
+            3: "发起应收开票批次审批", 4: "审核生成开票申请",
+            5: "发票上传与登记", 6: "应收核销",
+        }
+        return labels.get(index, f"应收阶段{index}")
+    if 7 <= index <= 13:
+        labels = {
+            7: "发起应付对账批次", 8: "确认应付对账",
+            9: "发起应付开票批次申请", 10: "应付发票上传与登记",
+            11: "发起付款需求", 12: "审核生成付款单", 13: "付款单核销",
+        }
+        return labels.get(index, f"应付阶段{index}")
+    return f"链路{index}"
+
+
+# ---------------------------------------------------------------------------
+# 构造 marker 列表（依赖上面的辅助函数）
+# ---------------------------------------------------------------------------
+
+WORKFLOW_MARKERS = {
+    "order_only": [
+        {"name": f"order{i}", "description": f"链路{i}：{_order_label(i)}", "workflow_type": "order_only"}
+        for i in range(1, 13)
+    ],
+    "pay_receive": [
+        *[
+            {"name": f"order_pay_receive{i}", "description": f"订单+应付链路{i}：{_pay_receive_label(i)}", "workflow_type": "pay_receive"}
+            for i in range(1, 8)
+        ],
+        *[
+            {"name": f"order_pay_receive{i}", "description": f"订单+应付+应收链路{i}：{_pay_receive_label(i)}", "workflow_type": "pay_receive"}
+            for i in range(8, 14)
+        ],
+    ],
+    "receive_pay": [
+        *[
+            {"name": f"order_receive_pay{i}", "description": f"订单+应收链路{i}：{_receive_pay_label(i)}", "workflow_type": "receive_pay"}
+            for i in range(1, 7)
+        ],
+        *[
+            {"name": f"order_receive_pay{i}", "description": f"订单+应收+应付链路{i}：{_receive_pay_label(i)}", "workflow_type": "receive_pay"}
+            for i in range(7, 14)
+        ],
+    ],
+}
+
+MARKERS = [marker for group in WORKFLOW_MARKERS.values() for marker in group]
 
 bp = Blueprint("markers", __name__)
 
 
 @bp.route("/api/markers", methods=["GET"])
 def list_markers():
-    return jsonify({"markers": MARKERS})
+    workflow_type = (request.args.get("workflow_type") or "").strip().lower()
+    if not workflow_type or workflow_type not in WORKFLOW_MARKERS:
+        return jsonify({"markers": MARKERS})
+    return jsonify({"markers": WORKFLOW_MARKERS[workflow_type]})

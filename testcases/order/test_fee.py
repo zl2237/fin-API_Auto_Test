@@ -1,24 +1,25 @@
 """
 链路测试 - 费用（link6）
 
-  link6  - 新建、分发、查询、暂存、提交、生成子订单、录费用
+  link6 - 录费用
 """
 import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData, generate_bl_no
+from data.order import BookRealAmountData
+from utils import generate_bl_no
 
 
 # =============================================================================
-# 链路6：新建、分发、查询、暂存、提交、生成子订单、录费用
+# 链路6：录费用
 # =============================================================================
-@pytest.mark.link6
-class TestLink6RecordFee:
+@pytest.mark.order6
+class TestOrder6RecordFee:
     """链路6：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用"""
 
     @allure.feature("链路测试")
-    @allure.story("链路6：新建、分发、查询、暂存、提交、生成子订单、录费用")
+    @allure.story("链路6：录费用")
     @allure.severity("critical")
     @allure.title("链路6：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用")
     def test_link6_record_fee(self):
@@ -34,7 +35,7 @@ class TestLink6RecordFee:
         }
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用）'):
-            result = OrderWorkflow.full_flow(
+            result = OrderWorkflow.run(
                 stop_at='record_fee',
                 bl_no=bl_no,
                 fee_configs=[fee_config],

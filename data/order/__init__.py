@@ -23,7 +23,6 @@ from .order_data import (
     AddOrderData,
     DistributeOrderData,
     SubmitOrderData,
-    generate_bl_no,
     # 测试数据 & 预期
     OrderTestData,
     OrderExpectations,

@@ -1,14 +1,15 @@
 # PR Study - 接口自动化测试框架 + Web 测试平台
 
-基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 25 条链路。
+基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的完整链路。
 
 **核心能力：**
-- 25 条链路（link1~link25），按依赖顺序递增，link25 隐含 link1~link24
+- 32 条链路：`order1~12` 为树根，`order_pay_receive1~13` 与 `order_receive_pay1~13` 为两类扩展执行顺序
 - workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
 - 所有业务配置参数集中存储于 YAML，Python 代码零硬编码
 - data 层按环境自动加载 `*_tidb.yaml` 或 `*_pre.yaml`，通过 `.env` 中的 `TEST_ENV` 切换
-- Web 平台：环境管理、一键执行、实时日志、执行历史
+- Web 平台：5 张流程选择卡片、环境管理、链路选择、循环执行、一键执行、实时日志、执行历史、用户管理
 - CI 环境自动企微机器人通知
+- Allure 报告
 
 ---
 
@@ -30,9 +31,9 @@ pr_study/
 │   ├── receive/            # 应收对账、开票、核销
 │   └── pay/                # 应付对账、开票、付款需求、核销
 ├── testcases/              # pytest 用例
-│   ├── order/              # 链路 1~12
-│   ├── receive/            # 链路 13~18
-│   └── pay/                # 链路 19~25
+│   ├── order/              # order1~12（仅订单基础步骤）
+│   ├── pay_receive/        # order_pay_receive1~13（订单→应付→应收）
+│   └── receive_pay/        # order_receive_pay1~13（订单→应收→应付）
 ├── workflows/              # 流程编排
 │   ├── order/              # 订单域步骤
 │   ├── receive/            # 应收域步骤
@@ -115,32 +116,90 @@ cp .env.example .env
 
 # 运行
 pytest -v                          # 全部
-pytest -m link1                    # 仅链路1
-pytest -m "link11 or link12"       # 多条链路
-pytest -m link25                   # 全流程
+pytest -m order1                   # 仅订单链路1
+pytest -m "order_pay_receive1 or order_pay_receive8"       # 多条链路
+pytest -m order_pay_receive13      # 订单+应付+应收全流程
+pytest -m order_receive_pay13      # 订单+应收+应付全流程
 ```
 
 ---
 
-## 链路一览（25 条）
+## 链路一览（32 条）
 
-| 链路 | 停止阶段 | 链路 | 停止阶段 |
-|------|----------|------|----------|
-| link1 | 新建 | link14 | 确认应收对账 |
-| link2 | 分发 | link15 | 发起应收开票批次审批 |
-| link3 | 暂存 | link16 | 审核生成开票申请 |
-| link4 | 提交 | link17 | 发票上传与登记 |
-| link5 | 生成子订单 | link18 | 应收核销 |
-| link6 | 录费用 | link19 | 发起应付对账批次 |
-| link7 | 资产推送审批 | link20 | 确认应付对账 |
-| link8 | 订单锁定审批 | link21 | 发起应付开票批次申请 |
-| link9 | 未放款开票申请审批 | link22 | 应付发票上传与登记 |
-| link10 | 供应商垫付申请审批 | link23 | 发起付款需求 |
-| link11 | 生成费用通知单 | link24 | 审核生成付款单 |
-| link12 | 生成费用确认单 | link25 | 付款单核销 |
-| link13 | 发起应收对账批次 | | |
+### 订单基础链路（order1~12）
 
-> 链路按依赖顺序递增，link25 隐含 link1~link24 的全部步骤。
+| 链路 | 停止阶段 |
+|------|----------|
+| order1 | 新建 |
+| order2 | 分发 |
+| order3 | 暂存 |
+| order4 | 提交 |
+| order5 | 生成子订单 |
+| order6 | 录费用 |
+| order7 | 资产推送审批 |
+| order8 | 订单锁定审批 |
+| order9 | 未放款开票申请审批 |
+| order10 | 供应商垫付申请审批 |
+| order11 | 生成费用通知单 |
+| order12 | 生成费用确认单 |
+
+### 订单+应付+应收（默认，order_pay_receive1~13）
+
+**执行顺序：订单 → 应付 → 应收**
+
+| 链路 | 停止阶段 |
+|------|----------|
+| order_pay_receive1 | 发起应付对账批次 |
+| order_pay_receive2 | 确认应付对账 |
+| order_pay_receive3 | 发起应付开票批次申请 |
+| order_pay_receive4 | 应付发票上传与登记 |
+| order_pay_receive5 | 发起付款需求 |
+| order_pay_receive6 | 审核生成付款单 |
+| order_pay_receive7 | 付款单核销 |
+| order_pay_receive8 | 发起应收对账批次 |
+| order_pay_receive9 | 确认应收对账 |
+| order_pay_receive10 | 发起应收开票批次审批 |
+| order_pay_receive11 | 审核生成开票申请 |
+| order_pay_receive12 | 发票上传与登记 |
+| order_pay_receive13 | 应收核销 |
+
+### 订单+应收+应付（扩展，order_receive_pay1~13）
+
+**执行顺序：订单 → 应收 → 应付**
+
+| 链路 | 停止阶段 |
+|------|----------|
+| order_receive_pay1 | 发起应收对账批次 |
+| order_receive_pay2 | 确认应收对账 |
+| order_receive_pay3 | 发起应收开票批次审批 |
+| order_receive_pay4 | 审核生成开票申请 |
+| order_receive_pay5 | 发票上传与登记 |
+| order_receive_pay6 | 应收核销 |
+| order_receive_pay7 | 发起应付对账批次 |
+| order_receive_pay8 | 确认应付对账 |
+| order_receive_pay9 | 发起应付开票批次申请 |
+| order_receive_pay10 | 应付发票上传与登记 |
+| order_receive_pay11 | 发起付款需求 |
+| order_receive_pay12 | 审核生成付款单 |
+| order_receive_pay13 | 付款单核销 |
+
+> 所有链路基于链路依赖树模型：`order12` 是两类扩展流程的共同前置；`order_pay_receive7` 是 `order_pay_receive8` 的前置；`order_receive_pay6` 是 `order_receive_pay7` 的前置。
+
+---
+
+## Web 平台流程选择
+
+平台前端提供 5 张流程选择卡片：
+
+| 卡片 | Workflow 类型 | 可用 marker | 标注 |
+|------|--------------|------------|------|
+| 仅订单 | order_only | order1~12 | - |
+| 订单+应付（默认） | pay_receive | order_pay_receive1~7 | 默认 |
+| 订单+应付+应收（默认） | pay_receive | order_pay_receive8~13 | 默认 |
+| 订单+应收（扩展） | receive_pay | order_receive_pay1~6 | 扩展 |
+| 订单+应收+应付（扩展） | receive_pay | order_receive_pay7~13 | 扩展 |
+
+切换卡片时，“运行链路”下拉框会自动过滤对应 marker 范围，并重置到该组第一个可用链路。
 
 ---
 
@@ -151,28 +210,33 @@ pytest -m link25                   # 全流程
 ```python
 from workflows.order_workflow import OrderWorkflow
 
-OrderWorkflow.run_until_distribute()                # link2
-OrderWorkflow.run_until_stash()                    # link3
-OrderWorkflow.run_until_generate_sub_order()        # link5
-OrderWorkflow.run_until_record_fee(...)             # link6
-OrderWorkflow.run_until_record_audit()              # link7
-OrderWorkflow.run_until_order_lock()                # link8
-OrderWorkflow.run_until_invoice_apply()             # link9
-OrderWorkflow.run_until_supplier_advance()          # link10
-OrderWorkflow.run_until_fee_notice()                # link11
-OrderWorkflow.run_until_fee_confirm()               # link12
-OrderWorkflow.run_until_receive_account()           # link13
-OrderWorkflow.run_until_confirm_account()           # link14
-OrderWorkflow.run_until_invoice_batch()             # link15
-OrderWorkflow.run_until_invoice_batch_audit()      # link16
-OrderWorkflow.run_until_invoice_upload()            # link17
-OrderWorkflow.run_until_receive_writeoff()          # link18
-OrderWorkflow.run_until_payable_account()           # link19
-OrderWorkflow.run_until_confirm_payable()           # link20
-OrderWorkflow.run_until_payable_invoice_apply()     # link21
-OrderWorkflow.run_until_pay_demand()                # link23
-OrderWorkflow.run_until_pay_demand_audit()          # link24
-OrderWorkflow.run_until_pay_writeoff()              # link25
+# 订单基础链路
+OrderWorkflow.run_until_distribute()                # order2
+OrderWorkflow.run_until_stash()                    # order3
+OrderWorkflow.run_until_generate_sub_order()        # order5
+OrderWorkflow.run_until_record_fee(...)             # order6
+OrderWorkflow.run_until_record_audit()              # order7
+OrderWorkflow.run_until_order_lock()                # order8
+OrderWorkflow.run_until_invoice_apply()             # order9
+OrderWorkflow.run_until_supplier_advance()          # order10
+OrderWorkflow.run_until_fee_notice()                # order11
+OrderWorkflow.run_until_fee_confirm()               # order12
+
+# 应收链路（order13~18）
+OrderWorkflow.run_until_receive_account()           # order13
+OrderWorkflow.run_until_confirm_account()           # order14
+OrderWorkflow.run_until_invoice_batch()             # order15
+OrderWorkflow.run_until_invoice_batch_audit()      # order16
+OrderWorkflow.run_until_invoice_upload()            # order17
+OrderWorkflow.run_until_receive_writeoff()          # order18
+
+# 应付链路（order19~25）
+OrderWorkflow.run_until_payable_account()           # order19
+OrderWorkflow.run_until_confirm_payable()           # order20
+OrderWorkflow.run_until_payable_invoice_apply()     # order21
+OrderWorkflow.run_until_pay_demand()                # order23
+OrderWorkflow.run_until_pay_demand_audit()          # order24
+OrderWorkflow.run_until_pay_writeoff()              # order25
 ```
 
 ---

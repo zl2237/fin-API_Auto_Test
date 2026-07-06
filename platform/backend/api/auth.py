@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from services.auth import validate, make_token
+from services.auth import validate, make_token, get_role
 
 bp = Blueprint("auth", __name__)
 
@@ -14,4 +14,5 @@ def login():
     if not ok:
         return jsonify({"ok": False, "message": error}), 401
     token = make_token(username)
-    return jsonify({"ok": True, "token": token, "username": username})
+    role = get_role(username)
+    return jsonify({"ok": True, "token": token, "username": username, "role": role})

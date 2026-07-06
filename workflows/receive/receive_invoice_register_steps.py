@@ -13,6 +13,7 @@ import allure
 
 from api.receive.receive_invoice_register_api import InvoiceUploadApi
 from data.receive import _RECEIVE_INVOICE_UPLOAD_CFG
+from utils.generate import generate_invoice_no
 
 
 def record_invoice_upload(
@@ -113,7 +114,7 @@ def record_invoice_upload(
 
     # Step 1: invoiceAdd - 上传应收发票
     if invoice_number is None:
-        invoice_number = InvoiceUploadApi.generate_unique_invoice_number(prefix="API_INV")
+        invoice_number = generate_invoice_no("AR")
     if invoice_amount is None:
         invoice_amount = cfg.get("_constants", {}).get("invoice_amount", "1500")
 

@@ -2,7 +2,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 from pathlib import Path
 
@@ -19,6 +18,8 @@ PYTHON_EXE = sys.executable
 def _prepare_env(run_id: str, payload: dict):
     """根据 payload 生成独立的子进程环境变量，不写回项目根目录的 .env。"""
     env = os.environ.copy()
+    # 强制子进程 stdout/stderr 输出 UTF-8，解决 Windows 控制台默认 GBK 编码导致的中文乱码
+    env["PYTHONIOENCODING"] = "utf-8"
     env["BASE_URL"] = payload.get("base_url", "").strip()
     env["LOGIN_URL"] = payload.get("login_url", "").strip()
     env["USERNAME"] = payload.get("test_username", "").strip()

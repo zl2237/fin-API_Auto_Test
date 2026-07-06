@@ -68,7 +68,7 @@ async function handleLogin() {
   try {
     const { data } = await request.post('/auth/login', form)
     if (data.ok) {
-      auth.login(form.username, data.token)
+      auth.login(form.username, data.token, data.role)
       ElMessage.success(`欢迎回来，${form.username}`)
       router.push({ name: 'Home' })
     }

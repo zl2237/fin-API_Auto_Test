@@ -55,6 +55,10 @@
             <span>审批流配置</span>
           </el-menu-item>
         </el-sub-menu>
+        <el-menu-item v-if="auth.isAdmin" index="/platform/users">
+          <el-icon><User /></el-icon>
+          <template #title>用户管理</template>
+        </el-menu-item>
       </el-menu>
     </aside>
 
@@ -78,6 +82,30 @@
 
       <!-- 配置卡片区 -->
       <div class="config-cards">
+        <!-- 流程选择 -->
+        <el-card class="cfg-card workflow-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <el-icon><Connection /></el-icon>
+              <span>流程选择</span>
+            </div>
+          </template>
+          <div class="workflow-options">
+            <div
+              v-for="item in formStore.workflowCards"
+              :key="item.id"
+              class="workflow-option"
+              :class="{ active: formStore.activeCard?.id === item.id }"
+              @click="formStore.setWorkflowCard(item.id)"
+            >
+              <span v-if="item.tag" class="workflow-tag">{{ item.tag }}</span>
+              <div class="workflow-option-body">
+                <div class="workflow-label">{{ item.label }}</div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
         <!-- 环境配置 -->
         <el-card class="cfg-card" shadow="hover">
           <template #header>
@@ -147,7 +175,7 @@
         </el-card>
 
         <!-- 执行配置 -->
-        <el-card class="cfg-card" shadow="hover">
+        <el-card class="cfg-card execution-card" shadow="hover">
           <template #header>
             <div class="card-header">
               <el-icon><Setting /></el-icon>
@@ -155,39 +183,41 @@
             </div>
           </template>
           <el-form label-position="top" size="small">
-            <el-form-item label="运行链路">
-              <el-select
-                v-model="formStore.data.marker"
-                placeholder="请选择"
-                filterable
-                style="width: 100%"
-                @change="formStore.patch({ marker: formStore.data.marker })"
-              >
-                <el-option
-                  v-for="item in markers"
-                  :key="item.name"
-                  :label="`${item.name} - ${item.description}`"
-                  :value="item.name"
-                />
-              </el-select>
-            </el-form-item>
+            <div class="execution-grid">
+              <el-form-item label="运行链路">
+                <el-select
+                  v-model="formStore.data.marker"
+                  placeholder="请选择"
+                  filterable
+                  style="width: 100%"
+                  @change="formStore.patch({ marker: formStore.data.marker })"
+                >
+                  <el-option
+                    v-for="item in filteredMarkers"
+                    :key="item.name"
+                    :label="`${item.name} - ${item.description}`"
+                    :value="item.name"
+                  />
+                </el-select>
+              </el-form-item>
             <el-form-item label="提单号前缀">
               <el-input
                 v-model="formStore.data.order_prefix"
-                placeholder="如 lele"
+                placeholder="仅限字母、数字、下划线、短横线，不超过5位"
                 clearable
                 @change="formStore.patch({ order_prefix: formStore.data.order_prefix })"
               />
             </el-form-item>
-            <el-form-item label="循环次数">
-              <el-input-number
-                v-model="formStore.data.loop_count"
-                :min="1"
-                :max="100"
-                style="width: 100%"
-                @change="formStore.patch({ loop_count: formStore.data.loop_count })"
-              />
-            </el-form-item>
+              <el-form-item label="循环次数">
+                <el-input-number
+                  v-model="formStore.data.loop_count"
+                  :min="1"
+                  :max="100"
+                  style="width: 100%"
+                  @change="formStore.patch({ loop_count: formStore.data.loop_count })"
+                />
+              </el-form-item>
+            </div>
           </el-form>
         </el-card>
       </div>
@@ -203,7 +233,7 @@
           <span class="execute-btn-content">
             <el-icon v-if="running" class="spin-icon"><Loading /></el-icon>
             <el-icon v-else><VideoPlay /></el-icon>
-            <span class="execute-btn-text">{{ running ? '执行中...' : '▶ 开始执行' }}</span>
+            <span class="execute-btn-text">{{ running ? '执行中...' : '开始执行' }}</span>
           </span>
         </button>
       </div>
@@ -333,6 +363,11 @@ const running = ref(false)
 const summary = computed(() => run.value.result?.summary || {})
 const failedCases = computed(() => summary.value.details?.failed || [])
 
+const filteredMarkers = computed(() => {
+  const allowed = formStore.activeCard?.markers ?? []
+  return markers.value.filter(item => allowed.includes(item.name))
+})
+
 // localStorage 记忆键
 const STORAGE_KEY = 'link_test_state_v1'
 
@@ -394,6 +429,15 @@ async function handleRun() {
   }
   if (!formStore.data.marker) {
     ElMessage.warning('请选择运行链路')
+    return
+  }
+  const prefix = (formStore.data.order_prefix || '').trim()
+  if (/[^a-zA-Z0-9_-]/.test(prefix)) {
+    ElMessage.warning('提单号前缀仅限字母、数字、下划线和短横线')
+    return
+  }
+  if (prefix.length > 5) {
+    ElMessage.warning('提单号前缀不能超过5位')
     return
   }
 
@@ -693,8 +737,14 @@ onMounted(() => {
 /* 配置卡片区 */
 .config-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+.workflow-card {
+  grid-column: 1 / -1;
+}
+.execution-card {
+  grid-column: 1 / -1;
 }
 .cfg-card {
   border-radius: 12px;
@@ -752,6 +802,90 @@ onMounted(() => {
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
+}
+
+.workflow-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.workflow-option {
+  position: relative;
+  border: 2px solid #d0d5f0;
+  border-radius: 12px;
+  padding: 14px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 86px;
+  background: #f0f2ff;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s, background 0.25s;
+  overflow: hidden;
+}
+.workflow-option::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(102,126,234,0.12) 0%, rgba(118,75,162,0.12) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.workflow-option:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px rgba(102,126,234,0.25), 0 4px 20px rgba(102,126,234,0.15);
+  background: #eef1ff;
+}
+.workflow-option:hover::before {
+  opacity: 1;
+}
+.workflow-option.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #eef1ff 0%, #ddd6fe 100%);
+  box-shadow:
+    0 0 0 2px rgba(102,126,234,0.3),
+    0 0 20px rgba(102,126,234,0.2),
+    0 4px 16px rgba(102,126,234,0.15);
+  animation: card-glow 2s ease-in-out infinite alternate;
+}
+@keyframes card-glow {
+  from { box-shadow: 0 0 0 2px rgba(102,126,234,0.3), 0 0 20px rgba(102,126,234,0.2), 0 4px 16px rgba(102,126,234,0.15); }
+  to   { box-shadow: 0 0 0 3px rgba(102,126,234,0.5), 0 0 30px rgba(102,126,234,0.3), 0 6px 20px rgba(102,126,234,0.2); }
+}
+.workflow-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  pointer-events: none;
+  text-transform: uppercase;
+  z-index: 1;
+}
+.workflow-option-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.workflow-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.35;
+}
+
+.execution-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
 }
 
 /* 执行按钮区域 */
@@ -1010,6 +1144,20 @@ onMounted(() => {
 /* 响应式 */
 @media (max-width: 1024px) {
   .bottom-panels {
+    grid-template-columns: 1fr;
+  }
+  .config-cards {
+    grid-template-columns: 1fr;
+  }
+  .workflow-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .execution-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .workflow-options {
     grid-template-columns: 1fr;
   }
 }

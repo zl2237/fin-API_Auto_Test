@@ -9,7 +9,6 @@
       OrderExpectations / AddOrderDataCompat / DistributeOrderDataCompat /
       SubmitOrderDataCompat / EntrustedOrderData / BusinessOrderData
   - 费用通知单 / 费用确认单数据类：FeeNoticeData / FeeConfirmData
-  - 提单号生成：generate_bl_no()
 
 应收域（ReceiveAccountData / ReceiveWriteoffData 等）已迁移至 data/receive/receive_data.py，
 请使用 from data.receive import ... 引用。
@@ -17,10 +16,7 @@
 API 层对应：api/order/ 子包（order_api.py / audit_api.py）
 """
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Dict, Any
-from datetime import datetime
-import os
 import uuid
 
 from data.env import _load_yaml
@@ -126,28 +122,6 @@ class BookRealAmountData:
             "to_customer": {"put_amount": {"standard_list": customer_rows}},
             "to_supplier": {"pay_amount": {"standard_list": supplier_rows}},
         }
-
-
-# ========================================================================
-# 提单号
-# ========================================================================
-
-def generate_bl_no(num) -> str:
-    now = datetime.now()
-    # 优先级：ORDER_PREFIX 环境变量 > .gui_nickname.txt > 默认 "lele"
-    prefix = os.getenv("ORDER_PREFIX", "")
-    if not prefix:
-        nickname_file = Path.cwd() / ".gui_nickname.txt"
-        try:
-            if nickname_file.exists():
-                content = nickname_file.read_text(encoding="utf-8").strip()
-                if content:
-                    prefix = content
-        except Exception:
-            pass
-        if not prefix:
-            prefix = "lele"
-    return f"{prefix}_link{num}_{now.strftime('%Y%m%d%H%M%S')}"
 
 
 # ========================================================================
