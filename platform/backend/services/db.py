@@ -40,20 +40,17 @@ class Database:
         with self._cursor() as cursor:
             cursor.executescript(
                 """
-                CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS users_new (
+                    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
                     password TEXT NOT NULL,
                     role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+                    name TEXT NOT NULL DEFAULT '',
+                    phone TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );
-
-                CREATE TRIGGER IF NOT EXISTS update_users_updated_at
-                AFTER UPDATE ON users
-                FOR EACH ROW
-                BEGIN
-                    UPDATE users SET updated_at = datetime('now') WHERE username = OLD.username;
-                END;
 
                 CREATE TABLE IF NOT EXISTS runs (
                     run_id TEXT PRIMARY KEY,
@@ -66,13 +63,42 @@ class Database:
                 );
                 """
             )
-            # 初始化 admin 账号（仅当表空时）
+            cursor.execute("PRAGMA table_info(users)")
+            user_columns = [row["name"] for row in cursor.fetchall()]
+            if "username" in user_columns and "user_id" not in user_columns:
+                cursor.execute(
+                    """
+                    INSERT INTO users_new (username, password, role, name, phone, email, created_at, updated_at)
+                    SELECT username, password, role, '', '', '', created_at, updated_at
+                    FROM users
+                    """
+                )
+                cursor.execute("DROP TABLE users")
+                cursor.execute("ALTER TABLE users_new RENAME TO users")
+                cursor.execute(
+                    "UPDATE users SET phone = 'user_' || lower(hex(randomblob(4))) || substr(lower(hex(randomblob(2))), 1, 4) WHERE phone = ''"
+                )
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone)
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TRIGGER IF NOT EXISTS update_users_updated_at
+                AFTER UPDATE ON users
+                FOR EACH ROW
+                BEGIN
+                    UPDATE users SET updated_at = datetime('now') WHERE user_id = OLD.user_id;
+                END;
+                """
+            )
             cursor.execute("SELECT COUNT(*) FROM users")
             count = cursor.fetchone()[0]
             if count == 0:
                 cursor.execute(
-                    "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                    ("admin", "admin123", "admin"),
+                    "INSERT INTO users (username, password, role, name, phone, email) VALUES (?, ?, ?, ?, ?, ?)",
+                    ("admin", "admin123", "admin", "管理员", "13800000000", "admin@example.com"),
                 )
 
 

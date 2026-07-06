@@ -13,12 +13,12 @@
       <p class="card-subtitle">PR Study Automation</p>
       <el-divider />
       <el-form :model="form" label-position="top" @submit.prevent="handleLogin">
-        <el-form-item label="账号">
+        <el-form-item label="手机号">
           <el-input
-            v-model="form.username"
-            placeholder="请输入账号"
+            v-model="form.phone"
+            placeholder="请输入手机号"
             size="large"
-            prefix-icon="User"
+            prefix-icon="Phone"
             @keyup.enter="handleLogin"
           />
         </el-form-item>
@@ -38,7 +38,7 @@
             type="primary"
             size="large"
             :loading="loading"
-            :disabled="!form.username || !form.password"
+            :disabled="!form.phone || !form.password"
             @click="handleLogin"
             style="width: 100%; font-size: 16px; height: 44px"
           >
@@ -59,17 +59,17 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
-const form = reactive({ username: '', password: '' })
+const form = reactive({ phone: '', password: '' })
 const loading = ref(false)
 
 async function handleLogin() {
-  if (!form.username || !form.password) return
+  if (!form.phone || !form.password) return
   loading.value = true
   try {
     const { data } = await request.post('/auth/login', form)
     if (data.ok) {
-      auth.login(form.username, data.token, data.role)
-      ElMessage.success(`欢迎回来，${form.username}`)
+      auth.login(data.username, data.token, data.role, data.name, data.phone, data.email, data.user_id)
+      ElMessage.success(`欢迎回来，${data.name || data.username}`)
       router.push({ name: 'Home' })
     }
   } catch (e: any) {

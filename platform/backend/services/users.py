@@ -8,11 +8,17 @@ from services.db import db
 class UserService:
     def list(self) -> List[dict]:
         with db._cursor() as cursor:
-            cursor.execute("SELECT username, role, created_at, updated_at FROM users ORDER BY username")
+            cursor.execute(
+                "SELECT user_id, username, name, phone, email, role, created_at, updated_at FROM users ORDER BY user_id"
+            )
             rows = cursor.fetchall()
             return [
                 {
+                    "user_id": row["user_id"],
                     "username": row["username"],
+                    "name": row["name"],
+                    "phone": row["phone"],
+                    "email": row["email"],
                     "role": row["role"],
                     "created_at": row["created_at"],
                     "updated_at": row["updated_at"],
@@ -20,46 +26,126 @@ class UserService:
                 for row in rows
             ]
 
-    def get(self, username: str) -> Optional[dict]:
+    def get_by_phone(self, phone: str) -> Optional[dict]:
         with db._cursor() as cursor:
-            cursor.execute("SELECT username, role, created_at, updated_at FROM users WHERE username = ?", (username,))
+            cursor.execute(
+                "SELECT user_id, username, name, phone, email, password, role, created_at, updated_at FROM users WHERE phone = ?",
+                (phone,),
+            )
             row = cursor.fetchone()
             if not row:
                 return None
             return {
+                "user_id": row["user_id"],
                 "username": row["username"],
+                "name": row["name"],
+                "phone": row["phone"],
+                "email": row["email"],
+                "password": row["password"],
                 "role": row["role"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             }
 
-    def create(self, username: str, password: str, role: str) -> dict:
+    def get(self, username: str) -> Optional[dict]:
         with db._cursor() as cursor:
             cursor.execute(
-                "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                (username, password, role),
+                "SELECT user_id, username, name, phone, email, password, role, created_at, updated_at FROM users WHERE username = ?",
+                (username,),
             )
-        return {"username": username, "role": role}
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "user_id": row["user_id"],
+                "username": row["username"],
+                "name": row["name"],
+                "phone": row["phone"],
+                "email": row["email"],
+                "password": row["password"],
+                "role": row["role"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
 
-    def update(self, username: str, password: Optional[str], role: Optional[str]) -> dict:
+    def get_by_user_id(self, user_id: int) -> Optional[dict]:
+        with db._cursor() as cursor:
+            cursor.execute(
+                "SELECT user_id, username, name, phone, email, password, role, created_at, updated_at FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "user_id": row["user_id"],
+                "username": row["username"],
+                "name": row["name"],
+                "phone": row["phone"],
+                "email": row["email"],
+                "password": row["password"],
+                "role": row["role"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+
+    def create(self, username: str, password: str, role: str, name: str, phone: str, email: str) -> dict:
+        with db._cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO users (username, password, role, name, phone, email) VALUES (?, ?, ?, ?, ?, ?)",
+                (username, password, role, name, phone, email),
+            )
+            user_id = cursor.lastrowid
+        return self.get_by_user_id(user_id)
+
+    def update(
+        self,
+        user_id: int,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        role: Optional[str] = None,
+        name: Optional[str] = None,
+        phone: Optional[str] = None,
+        email: Optional[str] = None,
+    ) -> dict:
         fields = []
         values = []
+        if username is not None:
+            fields.append("username = ?")
+            values.append(username)
         if password is not None:
             fields.append("password = ?")
             values.append(password)
         if role is not None:
             fields.append("role = ?")
             values.append(role)
+        if name is not None:
+            fields.append("name = ?")
+            values.append(name)
+        if phone is not None:
+            fields.append("phone = ?")
+            values.append(phone)
+        if email is not None:
+            fields.append("email = ?")
+            values.append(email)
         if not fields:
-            return {"username": username, "role": self.get(username)["role"]}
-        values.append(username)
+            return self.get_by_user_id(user_id)
+        values.append(user_id)
         with db._cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {', '.join(fields)} WHERE username = ?", values)
-        return {"username": username, "role": role if role is not None else self.get(username)["role"]}
+            cursor.execute(f"UPDATE users SET {', '.join(fields)} WHERE user_id = ?", values)
+        return self.get_by_user_id(user_id)
 
     def delete(self, username: str) -> None:
         with db._cursor() as cursor:
             cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+
+    def is_phone_taken(self, phone: str, exclude_user_id: Optional[int] = None) -> bool:
+        with db._cursor() as cursor:
+            if exclude_user_id is None:
+                cursor.execute("SELECT 1 FROM users WHERE phone = ?", (phone,))
+            else:
+                cursor.execute("SELECT 1 FROM users WHERE phone = ? AND user_id <> ?", (phone, exclude_user_id))
+            return cursor.fetchone() is not None
 
 
 user_service = UserService()

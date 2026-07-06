@@ -1,64 +1,8 @@
 <template>
   <div class="page">
-    <!-- 左侧可折叠导航栏 -->
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-      <!-- 折叠按钮 -->
-      <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
-        <el-icon><Fold v-if="!sidebarCollapsed" /><Expand v-else /></el-icon>
-      </button>
-
-      <!-- 品牌区 -->
-      <div class="sidebar-brand">
-        <svg class="brand-icon" viewBox="0 0 24 24" fill="none">
-          <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0-6v6m18-6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="brand-text">API 测试平台</span>
-      </div>
-
-      <!-- 用户信息 -->
-      <div class="sidebar-user">
-        <el-tag type="info" size="small" effect="plain">PR Study</el-tag>
-        <span class="username">{{ auth.username }}</span>
-        <el-button type="danger" plain size="small" @click="handleLogout">
-          <el-icon><SwitchButton /></el-icon>
-          <span v-show="!sidebarCollapsed">退出</span>
-        </el-button>
-      </div>
-
-      <!-- 导航菜单 -->
-      <el-menu
-        :default-active="$route.path"
-        class="sidebar-menu"
-        :collapse="sidebarCollapsed"
-        :collapse-transition="false"
-        router
-      >
-        <el-menu-item index="/">
-          <el-icon><HomeFilled /></el-icon>
-          <template #title>首页概览</template>
-        </el-menu-item>
-        <el-sub-menu index="logistics">
-          <template #title>
-            <el-icon><Connection /></el-icon>
-            <span>物流系统</span>
-          </template>
-          <el-menu-item index="/logistics/link-test">
-            <el-icon><Connection /></el-icon>
-            <span>链路测试</span>
-          </el-menu-item>
-          <el-menu-item index="/logistics/document-upload">
-            <el-icon><Files /></el-icon>
-            <span>单证上传</span>
-          </el-menu-item>
-          <el-menu-item index="/logistics/approval-config">
-            <el-icon><EditPen /></el-icon>
-            <span>审批流配置</span>
-          </el-menu-item>
-        </el-sub-menu>
-      </el-menu>
-
+    <div class="main">
       <!-- 警告提示 -->
-      <div class="sidebar-warning">
+      <div class="warning-banner">
         <el-alert
           type="warning"
           :closable="false"
@@ -73,34 +17,39 @@
         </el-alert>
       </div>
 
-      <!-- 流程选择 -->
-      <div class="sidebar-workflow">
-        <div class="workflow-title">流程选择</div>
-        <div class="workflow-options">
-          <div
-            v-for="item in formStore.workflowCards"
-            :key="item.key + item.label"
-            class="workflow-option"
-            :class="{ active: formStore.activeCard?.key === item.key }"
-            @click="formStore.setWorkflowCard(item.key)"
-          >
-            <div class="workflow-label">{{ item.label }}</div>
-            <el-tag v-if="item.tag" size="small" effect="plain"
-              :style="{ backgroundColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', borderColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', color: '#fff' }">
-              {{ item.tag }}
-            </el-tag>
-          </div>
-        </div>
-      </div>
-
       <!-- 配置卡片区 -->
-      <div class="sidebar-configs">
+      <div class="config-cards">
+        <!-- 流程选择 -->
+        <el-card class="cfg-card workflow-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <el-icon><Connection /></el-icon>
+              <span>流程选择</span>
+            </div>
+          </template>
+          <div class="workflow-options">
+            <div
+              v-for="item in formStore.workflowCards"
+              :key="item.key + item.label"
+              class="workflow-option"
+              :class="{ active: formStore.activeCard?.key === item.key }"
+              @click="formStore.setWorkflowCard(item.key)"
+            >
+              <div class="workflow-label">{{ item.label }}</div>
+              <el-tag v-if="item.tag" size="small" effect="plain"
+                :style="{ backgroundColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', borderColor: item.tag === '默认' ? '#67c23a' : '#e6a23c', color: '#fff' }">
+                {{ item.tag }}
+              </el-tag>
+            </div>
+          </div>
+        </el-card>
+
         <!-- 环境配置 -->
         <el-card class="cfg-card" shadow="hover">
           <template #header>
             <div class="card-header">
               <el-icon><Monitor /></el-icon>
-              <span v-show="!sidebarCollapsed">环境配置</span>
+              <span>环境配置</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -131,7 +80,7 @@
           <template #header>
             <div class="card-header">
               <el-icon><User /></el-icon>
-              <span v-show="!sidebarCollapsed">测试账号</span>
+              <span>测试账号</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -168,7 +117,7 @@
           <template #header>
             <div class="card-header">
               <el-icon><Setting /></el-icon>
-              <span v-show="!sidebarCollapsed">执行配置</span>
+              <span>执行配置</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -208,10 +157,7 @@
           </el-form>
         </el-card>
       </div>
-    </aside>
 
-  <!-- 主内容区 -->
-  <div class="main">
       <!-- 执行按钮 -->
       <div class="execute-section">
         <button
@@ -229,7 +175,7 @@
       </div>
 
       <!-- 右侧结果 + 日志 -->
-      <main class="content">
+      <div class="bottom-panels">
         <!-- 执行结果卡片 -->
         <el-card class="result-card" shadow="hover">
           <template #header>
@@ -319,7 +265,7 @@
             <div v-if="running" class="log-cursor">_</div>
           </div>
         </el-card>
-      </main>
+      </div>
     </div>
   </div>
 </template>
@@ -329,9 +275,8 @@ import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  Expand, Fold, Monitor, User, Setting, DataAnalysis, Document,
-  VideoPlay, CircleCheckFilled, CircleCloseFilled, SwitchButton,
-  Files, EditPen, Connection, HomeFilled, Loading
+  Monitor, User, Setting, DataAnalysis, Document,
+  VideoPlay, CircleCheckFilled, CircleCloseFilled, Connection, Loading
 } from '@element-plus/icons-vue'
 import request from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
@@ -342,7 +287,6 @@ const auth = useAuthStore()
 const formStore = useFormStore()
 const logBoxRef = ref<HTMLElement>()
 const markers = ref<Array<{ name: string; description: string }>>([])
-const sidebarCollapsed = ref(false)
 
 const run = ref<any>({ run_id: '', status: '', marker: '', result: {}, logs: [] })
 const logs = ref<string[]>([])
@@ -477,305 +421,99 @@ onMounted(() => {
   background: #f0f2f5;
 }
 
-/* 左侧边栏 */
-.sidebar {
-  width: 280px;
-  min-height: 100vh;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  color: #fff;
+.main {
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 100;
-  transition: width 0.3s ease;
-  overflow-x: hidden;
-}
-.sidebar.collapsed {
-  width: 64px;
-}
-
-/* 折叠按钮 */
-.sidebar-toggle {
-  position: absolute;
-  top: 12px;
-  right: -12px;
-  width: 24px;
-  height: 24px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 50%;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 101;
-  transition: all 0.2s;
-}
-.sidebar-toggle:hover {
-  background: #667eea;
-  border-color: #667eea;
-}
-
-/* 品牌区 */
-.sidebar-brand {
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-.collapsed .sidebar-brand {
-  justify-content: center;
-  padding: 16px 8px;
-}
-.brand-icon {
-  width: 28px;
-  height: 28px;
-  color: #667eea;
-  flex-shrink: 0;
-}
-.brand-text {
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.collapsed .brand-text {
-  display: none;
-}
-
-/* 用户区 */
-.sidebar-user {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-.collapsed .sidebar-user {
-  flex-direction: column;
-  padding: 12px 8px;
-  gap: 8px;
-}
-.username {
-  font-size: 13px;
-  color: rgba(255,255,255,0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-:deep(.el-tag--info) {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.2);
-  color: #fff;
-}
-:deep(.el-button--danger.is-plain) {
-  color: rgba(255,255,255,0.7);
-  border-color: rgba(255,255,255,0.2);
-  background: transparent;
-  padding: 6px 8px;
-}
-:deep(.el-button--danger.is-plain:hover) {
-  color: #fff;
-  border-color: rgba(255,255,255,0.5);
-  background: rgba(245,108,108,0.2);
-}
-
-/* 导航菜单 */
-.sidebar-menu {
-  background: transparent;
-  border-right: none;
-}
-:deep(.el-menu) {
-  background: transparent;
-}
-:deep(.el-menu-item),
-:deep(.el-sub-menu__title) {
-  color: rgba(255,255,255,0.85);
-  height: 44px;
-  line-height: 44px;
-}
-:deep(.el-menu-item:hover),
-:deep(.el-sub-menu__title:hover) {
-  background: rgba(102,126,234,0.2);
-  color: #fff;
-}
-:deep(.el-menu-item.is-active) {
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  color: #fff;
-}
-:deep(.el-sub-menu .el-menu-item) {
-  padding-left: 48px !important;
-  height: 40px;
-  line-height: 40px;
-}
-:deep(.el-sub-menu__title) {
-  height: 44px;
-  line-height: 44px;
+  gap: 16px;
 }
 
 /* 警告提示 */
-.sidebar-warning {
-  padding: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+.warning-banner {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 :deep(.el-alert--warning) {
-  background: rgba(230,162,60,0.15);
-  border: 1px solid rgba(230,162,60,0.3);
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
   border-radius: 8px;
 }
 :deep(.el-alert--warning .el-alert__icon) {
-  color: #e6a23c;
+  color: #faad14;
   font-size: 16px;
 }
 :deep(.el-alert--warning .el-alert__title) {
-  color: #fff;
-  font-size: 13px;
+  color: #d48806;
+  font-size: 14px;
 }
 :deep(.el-alert--warning .el-alert__description) {
-  color: rgba(255,255,255,0.75);
-  font-size: 12px;
+  color: #ad6800;
+  font-size: 13px;
+  line-height: 1.6;
 }
 .warning-title {
   font-weight: 600;
 }
 .warning-text {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
-/* 流程选择 */
-.sidebar-workflow {
-  padding: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-.workflow-title {
-  font-size: 13px;
-  color: rgba(255,255,255,0.85);
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-.workflow-options {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-.workflow-option {
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 10px;
-  padding: 10px 6px;
-  background: rgba(255,255,255,0.06);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 70px;
-  text-align: center;
-}
-.workflow-option:hover {
-  border-color: rgba(102,126,234,0.6);
-  background: rgba(102,126,234,0.15);
-}
-.workflow-option.active {
-  border-color: #667eea;
-  background: rgba(102,126,234,0.25);
-  box-shadow: 0 0 0 2px rgba(102,126,234,0.25);
-}
-.workflow-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1.3;
-}
-:deep(.workflow-option .el-tag) {
-  font-size: 11px;
-}
-.tag-默认 {
-  background-color: #67c23a !important;
-  border-color: #67c23a !important;
-  color: #fff !important;
-}
-.tag-扩展 {
-  background-color: #e6a23c !important;
-  border-color: #e6a23c !important;
-  color: #fff !important;
-}
-
 /* 配置卡片区 */
-.sidebar-configs {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.config-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
-.sidebar-configs::-webkit-scrollbar {
-  width: 4px;
+.workflow-card {
+  grid-column: 1 / -1;
 }
-.sidebar-configs::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.05);
-}
-.sidebar-configs::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
-}
-
 .cfg-card {
   border-radius: 12px;
   border: none;
-  background: rgba(255,255,255,0.08);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 :deep(.cfg-card .el-card__header) {
-  padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(102,126,234,0.6), rgba(118,75,162,0.6));
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   border-radius: 12px 12px 0 0;
   border-bottom: none;
 }
 :deep(.cfg-card .el-card__body) {
-  padding: 10px 14px 14px;
+  padding: 16px;
 }
 :deep(.el-form-item__label) {
-  font-size: 12px;
-  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  color: #606266;
   font-weight: 500;
 }
 :deep(.el-input__wrapper),
 :deep(.el-select__wrapper) {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
   box-shadow: none;
 }
 :deep(.el-input__wrapper:hover),
 :deep(.el-select__wrapper:hover) {
-  border-color: rgba(102,126,234,0.5);
+  border-color: #c0c4cc;
 }
-:deep(.el-input__inner),
-:deep(.el-select__placeholder) {
-  color: #fff;
+:deep(.el-input__inner) {
+  color: #303133;
 }
 :deep(.el-input__wrapper.is-focus),
 :deep(.el-select__wrapper.is-focus) {
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102,126,234,0.3);
-}
-:deep(.el-input__count-inner) {
-  background: transparent;
+  box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
 }
 :deep(.el-input-number__decrease),
 :deep(.el-input-number__increase) {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
-  border-color: rgba(255,255,255,0.15);
+  background: #f5f7fa;
+  color: #606266;
+  border-color: #e4e7ed;
 }
 :deep(.el-input-number__decrease:hover),
 :deep(.el-input-number__increase:hover) {
@@ -790,22 +528,73 @@ onMounted(() => {
   font-size: 14px;
 }
 
-/* 主内容区 */
-.main {
-  flex: 1;
-  margin-left: 280px;
-  padding: 20px 24px;
+.workflow-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.workflow-option {
+  position: relative;
+  border: 2px solid #d0d5f0;
+  border-radius: 12px;
+  padding: 14px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 86px;
+  background: #f0f2ff;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s, background 0.25s;
+  overflow: hidden;
+}
+.workflow-option::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(102,126,234,0.12) 0%, rgba(118,75,162,0.12) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.workflow-option:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px rgba(102,126,234,0.25), 0 4px 20px rgba(102,126,234,0.15);
+  background: #eef1ff;
+}
+.workflow-option:hover::before {
+  opacity: 1;
+}
+.workflow-option.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #eef1ff 0%, #ddd6fe 100%);
+  box-shadow:
+    0 0 0 2px rgba(102,126,234,0.3),
+    0 0 20px rgba(102,126,234,0.2),
+    0 4px 16px rgba(102,126,234,0.15);
+  animation: card-glow 2s ease-in-out infinite alternate;
+}
+@keyframes card-glow {
+  from { box-shadow: 0 0 0 2px rgba(102,126,234,0.3), 0 0 20px rgba(102,126,234,0.2), 0 4px 16px rgba(102,126,234,0.15); }
+  to   { box-shadow: 0 0 0 3px rgba(102,126,234,0.5), 0 0 30px rgba(102,126,234,0.3), 0 6px 20px rgba(102,126,234,0.2); }
+}
+.workflow-option-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: margin-left 0.3s ease;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.workflow-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.35;
 }
 
 /* 执行按钮区域 */
 .execute-section {
   width: 100%;
   max-width: 1200px;
-  margin: 0 auto;
 }
 .execute-btn {
   width: 100%;
@@ -867,21 +656,21 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 右侧内容 */
-.content {
+/* 底部面板区 */
+.bottom-panels {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
+  min-height: 0;
 }
 
 .result-card,
 .log-card {
   border-radius: 12px;
   border: none;
+  display: flex;
+  flex-direction: column;
 }
 :deep(.result-card .el-card__header),
 :deep(.log-card .el-card__header) {
@@ -893,6 +682,8 @@ onMounted(() => {
 :deep(.result-card .el-card__body),
 :deep(.log-card .el-card__body) {
   padding: 16px;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* 运行状态指示器 */
@@ -1015,6 +806,7 @@ onMounted(() => {
 .log-box {
   background: #0d1117;
   border-radius: 8px;
+  height: 100%;
   max-height: 380px;
   overflow-y: auto;
   padding: 12px 16px;
@@ -1049,5 +841,23 @@ onMounted(() => {
 
 :deep(.el-empty__description p) {
   color: #aaa;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .bottom-panels {
+    grid-template-columns: 1fr;
+  }
+  .config-cards {
+    grid-template-columns: 1fr;
+  }
+  .workflow-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .workflow-options {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

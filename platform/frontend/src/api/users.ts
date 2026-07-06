@@ -1,13 +1,20 @@
 import request from './request'
 
 export interface User {
+  user_id: number
   username: string
+  name: string
+  phone: string
+  email: string
   role: 'admin' | 'user'
 }
 
 export interface CreateUserPayload {
   username: string
   password: string
+  name: string
+  phone: string
+  email: string
   role: 'admin' | 'user'
 }
 
@@ -21,8 +28,8 @@ export async function createUser(payload: CreateUserPayload) {
   return data as { ok: boolean; message?: string }
 }
 
-export async function updateUser(username: string, payload: Partial<CreateUserPayload>) {
-  const { data } = await request.put(`/users/${encodeURIComponent(username)}`, payload)
+export async function updateUser(userId: number, payload: Partial<CreateUserPayload>) {
+  const { data } = await request.put(`/users/${userId}`, payload)
   return data as { ok: boolean; message?: string }
 }
 
