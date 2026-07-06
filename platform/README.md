@@ -185,7 +185,8 @@ sudo systemctl status pr_study
 cd platform/frontend
 npm install
 npm run build
-cp -r frontend/dist/* backend/static/
+mkdir backend/static/dist
+cp -r frontend/dist/* backend/static/dist
 sudo systemctl restart pr_study
 ```
 
