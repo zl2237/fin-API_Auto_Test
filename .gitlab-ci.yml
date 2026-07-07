@@ -55,12 +55,15 @@ smoke_test:
               name = d.get('name','')
               status = d.get('status','')
               msg = d.get('statusMessage','') or d.get('message','')
+              labels = {label.get('name',''): label.get('value','') for label in d.get('labels', [])}
+              marker = labels.get('marker','')
+              story = labels.get('story','')
               if 'passed' in status:
-                  results.append({'name': name, 'status': 'pass', 'message': msg})
+                  results.append({'name': name, 'status': 'pass', 'message': msg, 'marker': marker, 'story': story})
               elif 'failed' in status or 'broken' in status:
-                  results.append({'name': name, 'status': 'fail', 'message': msg})
+                  results.append({'name': name, 'status': 'fail', 'message': msg, 'marker': marker, 'story': story})
               elif 'skipped' in status:
-                  results.append({'name': name, 'status': 'skip', 'message': msg})
+                  results.append({'name': name, 'status': 'skip', 'message': msg, 'marker': marker, 'story': story})
           except: pass
       overall = 'pass' if all(r.get('status')=='pass' for r in results) else 'fail'
       with open('report/smoke_test_status.json','w',encoding='utf-8') as f:
@@ -85,6 +88,7 @@ deploy:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   before_script:
     - eval $(ssh-agent -s)
+    - chmod 600 "$SSH_PRIVATE_KEY"
     - ssh-add "$SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null

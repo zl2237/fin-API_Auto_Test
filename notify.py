@@ -69,12 +69,9 @@ def truncate_commit(msg, max_len=60):
 def build_message():
     pipeline_id = get_env("CI_PIPELINE_ID", "N/A")
     pipeline_url = get_env("CI_PIPELINE_URL", "")
-    job_url = get_env("CI_JOB_URL", "")
     branch = get_env("CI_COMMIT_BRANCH", get_env("CI_COMMIT_REF_NAME", "N/A"))
     commit_sha = get_env("CI_COMMIT_SHORT_SHA", get_env("CI_COMMIT_SHA", "N/A"))[:8]
     commit_msg = get_env("CI_COMMIT_MESSAGE", "N/A")
-    job_name = get_env("CI_JOB_NAME", "N/A")
-    runner = get_env("CI_RUNNER_DESCRIPTION", "N/A")
     project_name = get_env("CI_PROJECT_NAME", "PR Study")
     ci_job_status = get_env("CI_JOB_STATUS", "").lower()
 
@@ -153,20 +150,19 @@ def build_message():
     results = smoke.get("results", [])
     if results:
         for r in results:
-            name = r.get("name", "unknown")
+            marker = (r.get("marker") or "").strip()
+            story = (r.get("story") or "").strip()
             rs = r.get("status", "unknown")
             ri = icon_map.get(rs, "⚠️")
             rm = r.get("message", "")
-            # 提取用例名（取最后一段，如 test_order_new -> order_new）
-            marker = name.split("/")[-1].replace("test_", "").replace("_", "")
-            label = marker if marker else name
+            description = story if story else "新建"
             if rs == "pass":
-                lines.append(f"{ri} **{label}**  {label} pass")
+                lines.append(f"{ri} **smoke_test {marker}**  {description} pass")
             elif rs == "fail":
                 reason = f"，失败原因：{truncate(rm, 300)}" if rm else ""
-                lines.append(f"{ri} **{label}**  {label} fail{reason}")
+                lines.append(f"{ri} **smoke_test {marker}**  {description} fail{reason}")
             elif rs == "skip":
-                lines.append(f"{ri} **{label}**  {label} skip")
+                lines.append(f"{ri} **smoke_test {marker}**  {description} skip")
     elif smoke_status == "unknown":
         lines.append(f"{smoke_icon} **smoke_test**  未获取到测试结果")
     else:
