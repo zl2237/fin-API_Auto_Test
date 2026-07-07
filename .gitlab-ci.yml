@@ -88,10 +88,14 @@ deploy:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   before_script:
     - eval $(ssh-agent -s)
-    # 先创建ssh目录，权限700
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # File变量直接加载文件，不用tr处理换行
-    - ssh-add "$SSH_PRIVATE_KEY"
+    # 复制文件变量到自定义临时文件，修复权限
+    - cp "$SSH_PRIVATE_KEY" /tmp/deploy_ssh_key
+    - chmod 600 /tmp/deploy_ssh_key
+    # 加载权限合规的私钥文件
+    - ssh-add /tmp/deploy_ssh_key
+    # 清理临时密钥文件
+    - rm -f /tmp/deploy_ssh_key
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
   script:
     - |
