@@ -94,30 +94,31 @@ deploy:
   script:
     - |
       mkdir -p report
-      ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << 'SSH_SCRIPT'
+      # 去掉 SSH_SCRIPT 单引号，解决sudo交互密码问题
+      ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << SSH_SCRIPT
       set -e
-
+  
       DEPLOY_DIR="/opt/pr_study"
       BACKEND_DIR="${DEPLOY_DIR}/platform/backend"
       FRONTEND_DIR="${DEPLOY_DIR}/platform/frontend"
       VENV_BIN="${DEPLOY_DIR}/venv/bin"
       NOW=$(date '+%Y-%m-%d %H:%M:%S')
-
+  
       echo "[${NOW}] ===== 开始部署 ====="
       echo "[${NOW}] 分支: ${CI_COMMIT_REF_NAME}  提交: ${CI_COMMIT_SHORT_SHA}"
-
+  
       # 1. Git pull 更新代码
       cd "$DEPLOY_DIR"
       git reset --hard HEAD
       git fetch origin
       git checkout main
       git pull --rebase origin main
-
+  
       # 2. 安装 / 更新后端依赖
       cd "${BACKEND_DIR}"
       "${VENV_BIN}/pip" install --upgrade pip -q
       "${VENV_BIN}/pip" install -r requirements.txt -q
-
+  
       # 3. 构建前端
       cd "${FRONTEND_DIR}"
       rm -rf node_modules package-lock.json
@@ -127,14 +128,14 @@ deploy:
       rm -rf "${BACKEND_DIR}/static/dist"/*
       cp -r dist/* "${BACKEND_DIR}/static/dist"/
       echo "[${NOW}] 前端构建完成"
-
-      # 4. 重载并重启服务（service 文件已在虚拟机中预配置）
-      systemctl daemon-reload
-      systemctl enable pr_study
-      systemctl restart pr_study
+  
+      # 4. 全部带sudo重载、重启服务
+      sudo systemctl daemon-reload
+      sudo systemctl enable pr_study
+      sudo systemctl restart pr_study
       sleep 3
-      systemctl status pr_study --no-pager || true
-
+      sudo systemctl status pr_study --no-pager || true
+  
       echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 部署完成 ====="
       SSH_SCRIPT
       echo '{"status":"pass","message":"服务已部署，请访问 http://172.16.18.55:10086/ 获取服务"}' > report/deploy_status.json
