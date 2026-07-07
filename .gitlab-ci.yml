@@ -94,8 +94,8 @@ deploy:
   script:
     - |
       mkdir -p report
-      # 去掉 SSH_SCRIPT 单引号，解决sudo交互密码问题
-      ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << SSH_SCRIPT
+      # 加 -t 分配伪终端，保留单引号避免变量提前解析
+      ssh -t -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << 'SSH_SCRIPT'
       set -e
   
       DEPLOY_DIR="/opt/pr_study"
@@ -129,7 +129,7 @@ deploy:
       cp -r dist/* "${BACKEND_DIR}/static/dist"/
       echo "[${NOW}] 前端构建完成"
   
-      # 4. 全部带sudo重载、重启服务
+      # 4. 全部带sudo
       sudo systemctl daemon-reload
       sudo systemctl enable pr_study
       sudo systemctl restart pr_study
